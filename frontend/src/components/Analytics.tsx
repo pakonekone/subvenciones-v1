@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getApiUrl } from "@/config/api"
 
 interface AnalyticsData {
   total_grants: number

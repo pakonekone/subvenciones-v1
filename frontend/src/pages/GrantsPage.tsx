@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { LayoutGrid, List, Filter, Download, RefreshCw, Send, Database } from "lucide-react"
+import { getApiUrl } from "@/config/api"
 
 type ViewMode = "table" | "cards"
 
@@ -46,8 +47,6 @@ export default function GrantsPage() {
 
   // Date range filter
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null })
-
-  const API_BASE = "/api/v1"
 
   // Load grants
   useEffect(() => {
@@ -108,7 +107,7 @@ export default function GrantsPage() {
 
       params.append("limit", "100")
 
-      const response = await fetch(`${API_BASE}/grants?${params.toString()}`)
+      const response = await fetch(getApiUrl('/api/v1/grants?${params.toString()}'))
       if (!response.ok) throw new Error("Error cargando grants")
 
       const data: GrantsResponse = await response.json()
@@ -132,7 +131,7 @@ export default function GrantsPage() {
 
     try {
       if (captureSource === "BDNS") {
-        const response = await fetch(`${API_BASE}/capture/bdns`, {
+        const response = await fetch(getApiUrl('/api/v1/capture/bdns'), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -147,7 +146,7 @@ export default function GrantsPage() {
         const message = `✅ Captura BDNS exitosa!\n\n${result.stats.total_new} nuevos grants\n${result.stats.total_updated} actualizados\n${result.stats.total_nonprofit} nonprofit`
         alert(message)
       } else {
-        const response = await fetch(`${API_BASE}/capture/boe`, {
+        const response = await fetch(getApiUrl('/api/v1/capture/boe'), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -179,7 +178,7 @@ export default function GrantsPage() {
     setSending(true)
     setError(null)
     try {
-      const response = await fetch(`${API_BASE}/webhook/send`, {
+      const response = await fetch(getApiUrl('/api/v1/webhook/send'), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grant_ids: Array.from(selectedIds) }),
@@ -294,7 +293,7 @@ export default function GrantsPage() {
     setSending(true)
     setError(null)
     try {
-      const response = await fetch(`${API_BASE}/webhook/send`, {
+      const response = await fetch(getApiUrl('/api/v1/webhook/send'), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grant_ids: [grantId] }),
@@ -326,7 +325,7 @@ export default function GrantsPage() {
   const handleDeleteIndividual = async (grantId: string) => {
     setError(null)
     try {
-      const response = await fetch(`${API_BASE}/grants/${grantId}`, {
+      const response = await fetch(getApiUrl('/api/v1/grants/${grantId}'), {
         method: "DELETE",
       })
 

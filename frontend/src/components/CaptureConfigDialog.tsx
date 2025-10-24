@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { getApiUrl } from "@/config/api"
 import {
   Dialog,
   DialogContent,
@@ -55,7 +56,7 @@ export function CaptureConfigDialog({
   // Load filters summary when dialog opens
   useEffect(() => {
     if (open) {
-      fetch("/api/v1/filters/summary")
+      fetch(getApiUrl("/api/v1/filters/summary"))
         .then(res => res.json())
         .then(data => setFiltersSummary(data))
         .catch(err => console.error("Error loading filters summary:", err))
@@ -295,7 +296,7 @@ export function CaptureConfigDialog({
         onClose={() => {
           setShowFiltersManager(false)
           // Reload filters summary after editing
-          fetch("/api/v1/filters/summary")
+          fetch(getApiUrl("/api/v1/filters/summary"))
             .then(res => res.json())
             .then(data => setFiltersSummary(data))
             .catch(err => console.error("Error reloading filters:", err))

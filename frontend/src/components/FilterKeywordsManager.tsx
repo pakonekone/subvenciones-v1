@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { getApiUrl } from "@/config/api"
 import {
   Dialog,
   DialogContent,
@@ -47,12 +48,12 @@ export function FilterKeywordsManager({ open, onClose }: FilterKeywordsManagerPr
     setLoading(true)
     try {
       // Load BDNS filters
-      const bdnsRes = await fetch("/api/v1/filters/bdns")
+      const bdnsRes = await fetch(getApiUrl("/api/v1/filters/bdns"))
       const bdnsData: KeywordsData = await bdnsRes.json()
       setBdnsKeywords(bdnsData.keywords || [])
 
       // Load BOE filters
-      const boeRes = await fetch("/api/v1/filters/boe")
+      const boeRes = await fetch(getApiUrl("/api/v1/filters/boe"))
       const boeData = await boeRes.json()
       setBoeGrantKeywords(boeData.grant_keywords?.keywords || [])
       setBoeNonprofitKeywords(boeData.nonprofit_keywords?.keywords || [])
