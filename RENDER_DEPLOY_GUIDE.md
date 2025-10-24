@@ -85,7 +85,8 @@ Click en **"Add Environment Variable"** para cada una:
 | `MIN_RELEVANCE_SCORE` | `0.0` | Score mínimo (0.0 = desactivado) |
 | `LOG_LEVEL` | `INFO` | Nivel de logs |
 | `DB_ECHO` | `false` | No mostrar SQL en logs |
-| `API_PORT` | `$PORT` | Render lo asigna automáticamente |
+
+**⚠️ IMPORTANTE**: NO añadas `API_PORT` o `PORT` - Render los asigna automáticamente.
 
 ### Generar SECRET_KEY
 

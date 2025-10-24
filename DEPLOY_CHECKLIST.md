@@ -45,6 +45,8 @@ Añadir estas variables ANTES de crear el servicio:
 - [ ] `MIN_RELEVANCE_SCORE` = `0.0`
 - [ ] `LOG_LEVEL` = `INFO`
 
+⚠️ **NO añadas API_PORT o PORT** - Render los asigna automáticamente
+
 **Ahora sí**:
 - [ ] Click **"Create Web Service"**
 - [ ] Esperar 2-5 minutos (ver logs)

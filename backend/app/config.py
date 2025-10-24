@@ -1,6 +1,7 @@
 """
 Configuration management with Pydantic Settings
 """
+import os
 from typing import List, Union
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,7 +25,8 @@ class Settings(BaseSettings):
 
     # Server
     api_host: str = "0.0.0.0"
-    api_port: int = 8000
+    # Use PORT env var (Render) or default to 8000 (local dev)
+    api_port: int = int(os.getenv("PORT", "8000"))
     debug: bool = False
 
     # CORS - stored as string in .env, converted to list
