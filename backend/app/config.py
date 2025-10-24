@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         return int(os.getenv("PORT", "8000"))
 
     # CORS - stored as string in .env, converted to list
-    _cors_origins_str: str = Field(
+    cors_origins_str: str = Field(
         default="http://localhost:3000,http://localhost:5173",
         validation_alias="CORS_ORIGINS"
     )
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> List[str]:
         """Get CORS origins as a list"""
-        return [origin.strip() for origin in self._cors_origins_str.split(',') if origin.strip()]
+        return [origin.strip() for origin in self.cors_origins_str.split(',') if origin.strip()]
 
     # Logging
     log_level: str = "INFO"
