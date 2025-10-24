@@ -1,0 +1,252 @@
+{
+  "name": "BOE/BDNS Grants → Google Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "boe-grants-to-sheets",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook - Receive Grant",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "grants-to-sheets"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": []
+        },
+        "options": {
+          "dotNotation": false
+        },
+        "include": "all",
+        "includeOtherFields": false,
+        "rules": {
+          "rules": [
+            {
+              "renameOutput": true,
+              "outputKey": "*",
+              "value": "={{ $json.body }}"
+            }
+          ]
+        }
+      },
+      "id": "extract-body-node",
+      "name": "Extract Body",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate exact dates from relative text like \"20 días hábiles\"\n// También formatea fechas ISO a formato legible\n// Maneja nulls correctamente\nconst items = $input.all();\n\nfor (let item of items) {\n  const data = item.json;\n  \n  // Get publication date (can be null)\n  const publicationDate = data.publication_date || data.metadata?.publication_date;\n  \n  // Get application end date (can be null, relative text, or ISO date)\n  let applicationEndDate = data.application_end_date || data.metadata?.application_end_date;\n  \n  // Initialize output\n  let calculatedDate = 'No especificado';\n  let originalText = 'No especificado';\n  let formattedDate = 'No especificado';\n  \n  // Only process if we have a date (not null or undefined)\n  if (applicationEndDate !== null && applicationEndDate !== undefined && applicationEndDate !== '') {\n    if (typeof applicationEndDate === 'string') {\n      // Check if it's already an ISO date (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS)\n      if (applicationEndDate.match(/^\\d{4}-\\d{2}-\\d{2}/)) {\n        // Parse and format the ISO date\n        const date = new Date(applicationEndDate);\n        const day = date.getDate().toString().padStart(2, '0');\n        const month = (date.getMonth() + 1).toString().padStart(2, '0');\n        const year = date.getFullYear();\n        \n        calculatedDate = `${day}/${month}/${year}`;\n        formattedDate = calculatedDate;\n        originalText = calculatedDate;\n      } else {\n        // Try to extract days from text like \"20 días hábiles\"\n        const daysMatch = applicationEndDate.match(/(\\d+)\\s*días?\\s*(hábiles?|naturales?|laborables?)?/i);\n        \n        if (daysMatch && publicationDate) {\n          const days = parseInt(daysMatch[1]);\n          const isWorkingDays = daysMatch[2] && (daysMatch[2].toLowerCase().includes('hábil') || daysMatch[2].toLowerCase().includes('laborable'));\n          \n          // Parse publication date\n          const pubDate = new Date(publicationDate);\n          let targetDate = new Date(pubDate);\n          \n          if (isWorkingDays) {\n            // Add working days (skip weekends)\n            let addedDays = 0;\n            while (addedDays < days) {\n              targetDate.setDate(targetDate.getDate() + 1);\n              const dayOfWeek = targetDate.getDay();\n              if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not Sunday or Saturday\n                addedDays++;\n              }\n            }\n          } else {\n            // Add natural days\n            targetDate.setDate(targetDate.getDate() + days);\n          }\n          \n          // Format as DD/MM/YYYY\n          const day = targetDate.getDate().toString().padStart(2, '0');\n          const month = (targetDate.getMonth() + 1).toString().padStart(2, '0');\n          const year = targetDate.getFullYear();\n          \n          calculatedDate = `${day}/${month}/${year}`;\n          formattedDate = calculatedDate;\n          originalText = applicationEndDate; // Keep original text\n        } else {\n          // It's text but we can't calculate - keep as is\n          originalText = applicationEndDate;\n          formattedDate = 'Ver convocatoria';\n        }\n      }\n    } else if (typeof applicationEndDate === 'number') {\n      // It's a timestamp\n      const date = new Date(applicationEndDate);\n      const day = date.getDate().toString().padStart(2, '0');\n      const month = (date.getMonth() + 1).toString().padStart(2, '0');\n      const year = date.getFullYear();\n      \n      calculatedDate = `${day}/${month}/${year}`;\n      formattedDate = calculatedDate;\n      originalText = calculatedDate;\n    }\n  }\n  \n  // Format publication date if available (handle null)\n  let formattedPubDate = 'No especificado';\n  if (publicationDate !== null && publicationDate !== undefined && publicationDate !== '') {\n    const date = new Date(publicationDate);\n    const day = date.getDate().toString().padStart(2, '0');\n    const month = (date.getMonth() + 1).toString().padStart(2, '0');\n    const year = date.getFullYear();\n    formattedPubDate = `${day}/${month}/${year}`;\n  }\n  \n  // Add calculated fields to item\n  item.json.calculated_end_date = formattedDate;\n  item.json.original_end_date = originalText;\n  item.json.formatted_pub_date = formattedPubDate;\n}\n\nreturn items;"
+      },
+      "id": "function-node",
+      "name": "Calculate & Format Dates",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "fuente",
+              "name": "Fuente",
+              "value": "={{ $json.source }}",
+              "type": "string"
+            },
+            {
+              "id": "codigo",
+              "name": "Código",
+              "value": "={{ $json.source === 'BDNS' ? ($json.metadata?.bdns_code || $json.bdns_code || $json.id) : ($json.boe_id || $json.id) }}",
+              "type": "string"
+            },
+            {
+              "id": "subvencionador",
+              "name": "Subvencionador",
+              "value": "={{ $json.department || 'No especificado' }}",
+              "type": "string"
+            },
+            {
+              "id": "titulo",
+              "name": "Título",
+              "value": "={{ $json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "fecha_pub",
+              "name": "Fecha Publicación",
+              "value": "={{ $json.formatted_pub_date }}",
+              "type": "string"
+            },
+            {
+              "id": "fecha_fin_original",
+              "name": "Fecha Fin Original",
+              "value": "={{ $json.original_end_date }}",
+              "type": "string"
+            },
+            {
+              "id": "fecha_fin_calculada",
+              "name": "Fecha Fin Calculada",
+              "value": "={{ $json.calculated_end_date }}",
+              "type": "string"
+            },
+            {
+              "id": "montante",
+              "name": "Montante Económico",
+              "value": "={{ $json.budget_amount || $json.metadata?.budget_amount ? ($json.budget_amount || $json.metadata?.budget_amount).toLocaleString('es-ES') + ' €' : 'No especificado' }}",
+              "type": "string"
+            },
+            {
+              "id": "link_principal",
+              "name": "Link Principal",
+              "value": "={{ $json.source === 'BDNS' ? 'https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/' + ($json.metadata?.bdns_code || $json.bdns_code || $json.id.replace('BDNS-', '')) : ($json.html_url || $json.pdf_url) }}",
+              "type": "string"
+            },
+            {
+              "id": "link_pdf",
+              "name": "Link PDF",
+              "value": "={{ $json.metadata?.regulatory_base_url || $json.regulatory_base_url || $json.pdf_url || 'No disponible' }}",
+              "type": "string"
+            },
+            {
+              "id": "sede_electronica",
+              "name": "Sede Electrónica",
+              "value": "={{ $json.metadata?.electronic_office || $json.electronic_office || 'No disponible' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": false
+      },
+      "id": "set-node",
+      "name": "Map to Sheet Columns",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID_HERE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {
+          "useAppend": true
+        }
+      },
+      "id": "sheets-node",
+      "name": "Google Sheets - Append Row",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1050, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets - Subvenciones"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\"success\": true, \"message\": \"Grant exported to Google Sheets\", \"grant_id\": $json.Código, \"timestamp\": new Date().toISOString()} }}",
+        "options": {}
+      },
+      "id": "response-node",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Webhook - Receive Grant": {
+      "main": [
+        [
+          {
+            "node": "Extract Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Body": {
+      "main": [
+        [
+          {
+            "node": "Calculate & Format Dates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate & Format Dates": {
+      "main": [
+        [
+          {
+            "node": "Map to Sheet Columns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map to Sheet Columns": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Append Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Append Row": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-10-18T10:30:00.000Z",
+  "versionId": "3"
+}
