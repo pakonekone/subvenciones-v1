@@ -35,6 +35,8 @@ class GrantListItem(BaseModel):
     purpose: Optional[str]
     regulatory_base_url: Optional[str]
     electronic_office: Optional[str]
+    google_sheets_exported: bool = False
+    google_sheets_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -63,7 +65,11 @@ class GrantDetail(BaseModel):
     regulatory_base_url: Optional[str]
     electronic_office: Optional[str]
     captured_at: Optional[datetime]
-    
+    google_sheets_exported: bool = False
+    google_sheets_exported_at: Optional[datetime] = None
+    google_sheets_row_id: Optional[str] = None
+    google_sheets_url: Optional[str] = None
+
     class Config:
         from_attributes = True
 

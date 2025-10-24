@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Grant, GrantsResponse } from "@/types"
 import { QuickFilters, QuickFilter } from "@/components/QuickFilters"
 import {
@@ -32,8 +32,7 @@ export default function GrantsPage() {
   const [sending, setSending] = useState(false)
   const [captureDialogOpen, setCaptureDialogOpen] = useState(false)
   const [captureSource, setCaptureSource] = useState<"BDNS" | "BOE">("BDNS")
-  const [autoRefreshing, setAutoRefreshing] = useState(false)
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [showN8nProcessingBanner, setShowN8nProcessingBanner] = useState(false)
 
   // Quick filters
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([
@@ -55,41 +54,10 @@ export default function GrantsPage() {
     loadGrants()
   }, [advancedFilters, quickFilters, dateRange])
 
-  // Auto-refresh when there are grants in processing state
-  useEffect(() => {
-    // Check if there are any grants sent to N8n but not yet exported to Sheets
-    const hasProcessingGrants = grants.some(
-      g => g.sent_to_n8n && !g.google_sheets_exported
-    )
-
-    if (!hasProcessingGrants) {
-      // Stop polling if no grants in processing
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-        pollingIntervalRef.current = null
-      }
-      setAutoRefreshing(false)
-      return
-    }
-
-    // Only start polling if not already polling
-    if (!pollingIntervalRef.current) {
-      setAutoRefreshing(true)
-      pollingIntervalRef.current = setInterval(() => {
-        loadGrants()
-      }, 10000) // 10 seconds
-    }
-
-    // Cleanup on unmount
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current)
-        pollingIntervalRef.current = null
-      }
-    }
-  }, [grants])
-
   const loadGrants = async () => {
+    // Preserve scroll position
+    const scrollY = window.scrollY
+
     setLoading(true)
     setError(null)
     try {
@@ -152,6 +120,8 @@ export default function GrantsPage() {
       setError(err instanceof Error ? err.message : "Error desconocido")
     } finally {
       setLoading(false)
+      // Restore scroll position after render
+      setTimeout(() => window.scrollTo(0, scrollY), 0)
     }
   }
 
@@ -233,10 +203,13 @@ export default function GrantsPage() {
         throw new Error(error.detail || "Error enviando a N8n")
       }
 
-      const result = await response.json()
-      alert(`✅ Enviado a N8n!\n\n${result.message}`)
+      await response.json()
       setSelectedIds(new Set())
+      setShowN8nProcessingBanner(true)
       await loadGrants()
+
+      // Hide banner after 30 seconds
+      setTimeout(() => setShowN8nProcessingBanner(false), 30000)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error enviando")
     } finally {
@@ -348,9 +321,12 @@ export default function GrantsPage() {
         throw new Error(error.detail || "Error enviando a N8n")
       }
 
-      const result = await response.json()
-      alert(`✅ Enviado a N8n!\n\n${result.message}`)
+      await response.json()
+      setShowN8nProcessingBanner(true)
       await loadGrants()
+
+      // Hide banner after 30 seconds
+      setTimeout(() => setShowN8nProcessingBanner(false), 30000)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error enviando")
     } finally {
@@ -408,6 +384,25 @@ export default function GrantsPage() {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6 max-w-7xl">
+      {/* N8n Processing Banner */}
+      {showN8nProcessingBanner && (
+        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <div>
+              <p className="font-semibold text-blue-900 dark:text-blue-100">Grants enviados a N8n</p>
+              <p className="text-sm text-blue-700 dark:text-blue-300">Procesando y exportando a Google Sheets... Haz click en "Actualizar" en 10-15 segundos para ver los resultados.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowN8nProcessingBanner(false)}
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <Card>
         <CardHeader>
@@ -474,8 +469,8 @@ export default function GrantsPage() {
                 variant="outline"
                 className="gap-2"
               >
-                <RefreshCw className={`h-4 w-4 ${autoRefreshing ? 'animate-spin' : ''}`} />
-                {autoRefreshing ? 'Auto-actualizando...' : 'Actualizar'}
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Actualizar
               </Button>
             </div>
           </div>
