@@ -17,14 +17,31 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add Google Sheets tracking fields
-    op.add_column('grants', sa.Column('google_sheets_exported', sa.Boolean(), nullable=False, server_default='false'))
-    op.add_column('grants', sa.Column('google_sheets_exported_at', sa.DateTime(), nullable=True))
-    op.add_column('grants', sa.Column('google_sheets_row_id', sa.String(), nullable=True))
-    op.add_column('grants', sa.Column('google_sheets_url', sa.Text(), nullable=True))
+    # Add Google Sheets tracking fields only if they don't exist
+    from alembic import op
+    import sqlalchemy as sa
+    from sqlalchemy import inspect
 
-    # Create index on google_sheets_exported for faster queries
-    op.create_index(op.f('ix_grants_google_sheets_exported'), 'grants', ['google_sheets_exported'], unique=False)
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('grants')]
+
+    if 'google_sheets_exported' not in columns:
+        op.add_column('grants', sa.Column('google_sheets_exported', sa.Boolean(), nullable=False, server_default='false'))
+
+    if 'google_sheets_exported_at' not in columns:
+        op.add_column('grants', sa.Column('google_sheets_exported_at', sa.DateTime(), nullable=True))
+
+    if 'google_sheets_row_id' not in columns:
+        op.add_column('grants', sa.Column('google_sheets_row_id', sa.String(), nullable=True))
+
+    if 'google_sheets_url' not in columns:
+        op.add_column('grants', sa.Column('google_sheets_url', sa.Text(), nullable=True))
+
+    # Create index on google_sheets_exported for faster queries (only if not exists)
+    indexes = [idx['name'] for idx in inspector.get_indexes('grants')]
+    if 'ix_grants_google_sheets_exported' not in indexes:
+        op.create_index(op.f('ix_grants_google_sheets_exported'), 'grants', ['google_sheets_exported'], unique=False)
 
 
 def downgrade() -> None:
