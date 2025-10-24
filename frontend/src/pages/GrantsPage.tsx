@@ -32,6 +32,7 @@ export default function GrantsPage() {
   const [sending, setSending] = useState(false)
   const [captureDialogOpen, setCaptureDialogOpen] = useState(false)
   const [captureSource, setCaptureSource] = useState<"BDNS" | "BOE">("BDNS")
+  const [autoRefreshing, setAutoRefreshing] = useState(false)
 
   // Quick filters
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([
@@ -52,6 +53,27 @@ export default function GrantsPage() {
   useEffect(() => {
     loadGrants()
   }, [advancedFilters, quickFilters, dateRange])
+
+  // Auto-refresh when there are grants in processing state
+  useEffect(() => {
+    // Check if there are any grants sent to N8n but not yet exported to Sheets
+    const hasProcessingGrants = grants.some(
+      g => g.sent_to_n8n && !g.google_sheets_exported
+    )
+
+    if (!hasProcessingGrants) {
+      setAutoRefreshing(false)
+      return
+    }
+
+    // Start polling every 10 seconds
+    setAutoRefreshing(true)
+    const interval = setInterval(() => {
+      loadGrants()
+    }, 10000) // 10 seconds
+
+    return () => clearInterval(interval)
+  }, [grants])
 
   const loadGrants = async () => {
     setLoading(true)
@@ -438,8 +460,8 @@ export default function GrantsPage() {
                 variant="outline"
                 className="gap-2"
               >
-                <RefreshCw className="h-4 w-4" />
-                Actualizar
+                <RefreshCw className={`h-4 w-4 ${autoRefreshing ? 'animate-spin' : ''}`} />
+                {autoRefreshing ? 'Auto-actualizando...' : 'Actualizar'}
               </Button>
             </div>
           </div>
