@@ -40,8 +40,6 @@ export default function Analytics() {
   const [error, setError] = useState<string | null>(null)
   const [days, setDays] = useState(30)
 
-  const API_BASE = '/api/v1'
-
   useEffect(() => {
     loadAnalytics()
   }, [days])
@@ -50,7 +48,7 @@ export default function Analytics() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_BASE}/analytics/overview?days=${days}`)
+      const response = await fetch(getApiUrl(`/api/v1/analytics/overview?days=${days}`))
       if (!response.ok) throw new Error('Error cargando analytics')
       const result = await response.json()
       setData(result)
