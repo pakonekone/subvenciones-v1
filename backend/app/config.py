@@ -55,9 +55,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_prefix="",
         case_sensitive=False,
-        extra="ignore",
-        # Map CORS_ORIGINS env var to _cors_origins_str field
-        alias_generator=lambda field_name: "CORS_ORIGINS" if field_name == "_cors_origins_str" else field_name.upper()
+        extra="ignore"
     )
 
 
