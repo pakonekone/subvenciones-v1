@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Grant, GrantsResponse } from "@/types"
 import { QuickFilters, QuickFilter } from "@/components/QuickFilters"
 import {
@@ -33,6 +33,7 @@ export default function GrantsPage() {
   const [captureDialogOpen, setCaptureDialogOpen] = useState(false)
   const [captureSource, setCaptureSource] = useState<"BDNS" | "BOE">("BDNS")
   const [autoRefreshing, setAutoRefreshing] = useState(false)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Quick filters
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([
@@ -62,17 +63,30 @@ export default function GrantsPage() {
     )
 
     if (!hasProcessingGrants) {
+      // Stop polling if no grants in processing
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
       setAutoRefreshing(false)
       return
     }
 
-    // Start polling every 10 seconds
-    setAutoRefreshing(true)
-    const interval = setInterval(() => {
-      loadGrants()
-    }, 10000) // 10 seconds
+    // Only start polling if not already polling
+    if (!pollingIntervalRef.current) {
+      setAutoRefreshing(true)
+      pollingIntervalRef.current = setInterval(() => {
+        loadGrants()
+      }, 10000) // 10 seconds
+    }
 
-    return () => clearInterval(interval)
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
+    }
   }, [grants])
 
   const loadGrants = async () => {
