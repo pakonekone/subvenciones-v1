@@ -86,3 +86,32 @@ async def debug_cors():
         "cors_origins_raw": settings._cors_origins_str,
         "count": len(settings.cors_origins)
     }
+
+
+@app.get("/debug/env")
+async def debug_env():
+    """Debug endpoint to check environment variables"""
+    import os
+
+    # Check if CORS_ORIGINS exists in environment
+    cors_in_env = "CORS_ORIGINS" in os.environ
+    cors_value = os.environ.get("CORS_ORIGINS", "NOT_FOUND")
+
+    # List all environment variable names (not values for security)
+    env_keys = sorted([k for k in os.environ.keys() if not k.startswith("_")])
+
+    # Check specific vars we care about
+    relevant_vars = {
+        "DATABASE_URL": "EXISTS" if os.environ.get("DATABASE_URL") else "MISSING",
+        "CORS_ORIGINS": cors_value if cors_in_env else "MISSING",
+        "PORT": os.environ.get("PORT", "MISSING"),
+        "N8N_WEBHOOK_URL": "EXISTS" if os.environ.get("N8N_WEBHOOK_URL") else "MISSING",
+    }
+
+    return {
+        "cors_origins_in_env": cors_in_env,
+        "cors_origins_value": cors_value,
+        "relevant_vars": relevant_vars,
+        "total_env_vars": len(env_keys),
+        "env_var_names": env_keys[:20]  # First 20 to avoid huge response
+    }
