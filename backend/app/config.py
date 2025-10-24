@@ -25,9 +25,12 @@ class Settings(BaseSettings):
 
     # Server
     api_host: str = "0.0.0.0"
-    # Use PORT env var (Render) or default to 8000 (local dev)
-    api_port: int = int(os.getenv("PORT", "8000"))
     debug: bool = False
+
+    @property
+    def api_port(self) -> int:
+        """Get API port from PORT env var (Render) or default to 8000 (local dev)"""
+        return int(os.getenv("PORT", "8000"))
 
     # CORS - stored as string in .env, converted to list
     _cors_origins_str: str = "http://localhost:3000,http://localhost:5173"
