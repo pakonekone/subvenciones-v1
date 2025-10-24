@@ -111,7 +111,7 @@ export default function GrantsPage() {
 
       params.append("limit", "100")
 
-      const response = await fetch(getApiUrl('/api/v1/grants?${params.toString()}'))
+      const response = await fetch(getApiUrl(`/api/v1/grants?${params.toString()}`))
       if (!response.ok) throw new Error("Error cargando grants")
 
       const data: GrantsResponse = await response.json()
