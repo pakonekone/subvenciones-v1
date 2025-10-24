@@ -28,6 +28,9 @@ wheels/
 .env.*
 !.env.example
 
+# Database credentials (DO NOT COMMIT)
+DATABASE_INFO.md
+
 # Database
 *.db
 *.sqlite
