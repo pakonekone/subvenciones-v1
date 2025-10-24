@@ -3,7 +3,7 @@ Configuration management with Pydantic Settings
 """
 import os
 from typing import List, Union
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,7 +33,10 @@ class Settings(BaseSettings):
         return int(os.getenv("PORT", "8000"))
 
     # CORS - stored as string in .env, converted to list
-    _cors_origins_str: str = "http://localhost:3000,http://localhost:5173"
+    _cors_origins_str: str = Field(
+        default="http://localhost:3000,http://localhost:5173",
+        validation_alias="CORS_ORIGINS"
+    )
 
     @property
     def cors_origins(self) -> List[str]:
