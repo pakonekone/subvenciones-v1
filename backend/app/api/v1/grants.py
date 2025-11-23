@@ -93,6 +93,7 @@ async def list_grants(
     department: Optional[str] = Query(None, description="Filtrar por organismo"),
 
     # Filtros de fecha
+    date_field: str = Query("application_end_date", description="Campo de fecha para filtrar (application_end_date, publication_date, captured_at)"),
     date_from: Optional[str] = Query(None, description="Fecha desde (YYYY-MM-DD)"),
     date_to: Optional[str] = Query(None, description="Fecha hasta (YYYY-MM-DD)"),
 
@@ -112,13 +113,6 @@ async def list_grants(
 ):
     """
     Lista grants con filtros avanzados
-
-    Filtros disponibles:
-    - Básicos: source, is_open, is_nonprofit, sent_to_n8n
-    - Búsqueda: search (título/descripción), department
-    - Fechas: date_from, date_to
-    - Presupuesto: budget_min, budget_max
-    - Confianza: confidence_min
     """
     from datetime import datetime
 
@@ -146,18 +140,20 @@ async def list_grants(
         dept_pattern = f"%{department}%"
         query = query.filter(Grant.department.ilike(dept_pattern))
 
-    # Filtros de fecha (application_end_date)
+    # Filtros de fecha dinámicos
+    date_column = getattr(Grant, date_field, Grant.application_end_date)
+    
     if date_from:
         try:
             from_date = datetime.strptime(date_from, "%Y-%m-%d")
-            query = query.filter(Grant.application_end_date >= from_date)
+            query = query.filter(date_column >= from_date)
         except ValueError:
             pass
 
     if date_to:
         try:
             to_date = datetime.strptime(date_to, "%Y-%m-%d")
-            query = query.filter(Grant.application_end_date <= to_date)
+            query = query.filter(date_column <= to_date)
         except ValueError:
             pass
 

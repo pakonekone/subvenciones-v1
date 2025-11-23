@@ -142,7 +142,7 @@ async def get_analytics_overview(
 
         grants_by_date = [
             GrantsByDatePoint(
-                date=row.date.isoformat(),
+                date=row.date if isinstance(row.date, str) else row.date.isoformat(),
                 count=row.count,
                 total_budget=float(row.total_budget or 0)
             )

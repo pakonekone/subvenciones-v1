@@ -48,11 +48,12 @@ export default function GrantsPage() {
 
   // Date range filter
   const [dateRange, setDateRange] = useState<DateRange>({ from: null, to: null })
+  const [dateField, setDateField] = useState<string>("application_end_date")
 
   // Load grants
   useEffect(() => {
     loadGrants()
-  }, [advancedFilters, quickFilters, dateRange])
+  }, [advancedFilters, quickFilters, dateRange, dateField])
 
   const loadGrants = async () => {
     // Preserve scroll position
@@ -64,6 +65,7 @@ export default function GrantsPage() {
       const params = new URLSearchParams()
 
       // Apply date range filter
+      params.append("date_field", dateField)
       if (dateRange.from) params.append("date_from", dateRange.from)
       if (dateRange.to) params.append("date_to", dateRange.to)
 
@@ -487,15 +489,32 @@ export default function GrantsPage() {
       {/* Date Range Filter */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-muted-foreground">
-              Rango de fechas:
-            </span>
-            <DateRangePicker
-              value={dateRange}
-              onChange={setDateRange}
-              onClear={() => setDateRange({ from: null, to: null })}
-            />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">
+                Filtrar por:
+              </span>
+              <select
+                className="h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={dateField}
+                onChange={(e) => setDateField(e.target.value)}
+              >
+                <option value="application_end_date">Fecha Límite</option>
+                <option value="publication_date">Fecha Publicación</option>
+                <option value="captured_at">Fecha Captura</option>
+              </select>
+            </div>
+            <div className="h-4 w-px bg-border hidden sm:block" />
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-muted-foreground">
+                Rango:
+              </span>
+              <DateRangePicker
+                value={dateRange}
+                onChange={setDateRange}
+                onClear={() => setDateRange({ from: null, to: null })}
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -513,20 +532,20 @@ export default function GrantsPage() {
         advancedFilters.isOpen !== null ||
         advancedFilters.sentToN8n !== null ||
         advancedFilters.isNonprofit) && (
-        <Card>
-          <CardContent className="p-4">
-            <ActiveFilters
-              quickFilters={quickFilters}
-              advancedFilters={advancedFilters}
-              dateRange={dateRange}
-              onRemoveQuickFilter={handleRemoveQuickFilter}
-              onRemoveAdvancedFilter={handleRemoveAdvancedFilter}
-              onClearDateRange={() => setDateRange({ from: null, to: null })}
-              onClearAll={handleClearAllFilters}
-            />
-          </CardContent>
-        </Card>
-      )}
+          <Card>
+            <CardContent className="p-4">
+              <ActiveFilters
+                quickFilters={quickFilters}
+                advancedFilters={advancedFilters}
+                dateRange={dateRange}
+                onRemoveQuickFilter={handleRemoveQuickFilter}
+                onRemoveAdvancedFilter={handleRemoveAdvancedFilter}
+                onClearDateRange={() => setDateRange({ from: null, to: null })}
+                onClearAll={handleClearAllFilters}
+              />
+            </CardContent>
+          </Card>
+        )}
 
       {/* Controls Bar */}
       <Card>
