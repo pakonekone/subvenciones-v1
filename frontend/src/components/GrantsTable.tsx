@@ -378,6 +378,15 @@ export function GrantsTable({
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="h-auto p-0 font-semibold hover:bg-transparent cursor-default"
+                  >
+                    Fuente
+                  </Button>
+                </th>
+                <th className="p-3 text-left">
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     className="h-auto p-0 font-semibold hover:bg-transparent"
                     onClick={() => handleSort("publication_date")}
                   >
@@ -394,6 +403,15 @@ export function GrantsTable({
                   >
                     Presupuesto
                     <SortIcon field="budget_amount" />
+                  </Button>
+                </th>
+                <th className="p-3 text-left">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 font-semibold hover:bg-transparent cursor-default"
+                  >
+                    Estado
                   </Button>
                 </th>
                 <th className="p-3 text-left">
@@ -418,10 +436,24 @@ export function GrantsTable({
                     <SortIcon field="nonprofit_confidence" />
                   </Button>
                 </th>
-                <th className="p-3 text-left">Estado</th>
-                <th className="p-3 text-left">Fuente</th>
-                <th className="p-3 text-left">Exportado</th>
-                <th className="p-3 text-left">Acciones</th>
+                <th className="p-3 text-left">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 font-semibold hover:bg-transparent cursor-default"
+                  >
+                    Exportado
+                  </Button>
+                </th>
+                <th className="p-3 text-left">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 font-semibold hover:bg-transparent cursor-default"
+                  >
+                    Acciones
+                  </Button>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -469,6 +501,7 @@ export function GrantsTable({
                         {grant.department || "-"}
                       </div>
                     </td>
+                    <td className="p-3">{getSourceBadge(grant.source)}</td>
                     <td className="p-3 text-sm text-muted-foreground">
                       <div title={grant.publication_date || undefined}>
                         {formatDate(grant.publication_date)}
@@ -477,12 +510,11 @@ export function GrantsTable({
                     <td className="p-3 font-semibold text-success">
                       {formatAmount(grant.budget_amount)}
                     </td>
+                    <td className="p-3">{getStatusBadge(grant)}</td>
                     <td className="p-3 text-sm">
                       {formatDate(grant.application_end_date)}
                     </td>
                     <td className="p-3">{getConfidenceBadge(grant.nonprofit_confidence)}</td>
-                    <td className="p-3">{getStatusBadge(grant)}</td>
-                    <td className="p-3">{getSourceBadge(grant.source)}</td>
                     <td className="p-3">{getExportStatus(grant)}</td>
                     <td className="p-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">

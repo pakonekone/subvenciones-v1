@@ -15,9 +15,10 @@ interface DateRangePickerProps {
   value: DateRange
   onChange: (range: DateRange) => void
   onClear: () => void
+  className?: string
 }
 
-export function DateRangePicker({ value, onChange, onClear }: DateRangePickerProps) {
+export function DateRangePicker({ value, onChange, onClear, className }: DateRangePickerProps) {
   const [open, setOpen] = useState(false)
 
   const presets = [
@@ -109,7 +110,7 @@ export function DateRangePicker({ value, onChange, onClear }: DateRangePickerPro
     <div className="flex items-center gap-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="gap-2 min-w-[200px] justify-start">
+          <Button variant="outline" className={`gap-2 min-w-[200px] justify-start ${className || ''}`}>
             <Calendar className="h-4 w-4" />
             <span className="flex-1 text-left">{formatDateRange()}</span>
           </Button>

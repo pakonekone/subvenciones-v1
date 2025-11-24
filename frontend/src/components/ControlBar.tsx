@@ -53,21 +53,21 @@ export function ControlBar({
 }: ControlBarProps) {
     return (
         <div className="bg-card border rounded-lg p-4 mb-6 space-y-4 shadow-sm">
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="flex flex-col md:flex-row gap-4 items-start justify-between flex-wrap">
                 {/* Left Section: Search & Tabs */}
-                <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full md:w-auto items-center">
-                    <div className="relative max-w-xs w-full">
+                <div className="flex flex-col sm:flex-row gap-4 flex-1 w-full md:w-auto items-center flex-wrap">
+                    <div className="relative max-w-xs w-full min-w-[200px]">
                         <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Buscar subvenciones..."
-                            className="pl-8"
+                            className="pl-8 h-9"
                             value={searchValue}
                             onChange={(e) => onSearchChange(e.target.value)}
                         />
                     </div>
 
                     <Tabs value={activeTab} onValueChange={onTabChange} className="w-full sm:w-auto">
-                        <TabsList>
+                        <TabsList className="h-9">
                             <TabsTrigger value="all">Todas</TabsTrigger>
                             <TabsTrigger value="open">Abiertas</TabsTrigger>
                             <TabsTrigger value="n8n">Enviadas N8n</TabsTrigger>
@@ -77,7 +77,7 @@ export function ControlBar({
                     <div className="h-6 w-px bg-border hidden sm:block" />
 
                     {/* Quick Filters Chips */}
-                    <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 max-w-full">
+                    <div className="flex gap-2 flex-wrap pb-2 sm:pb-0 w-full sm:w-auto">
                         {quickFilters.map(filter => (
                             <Badge
                                 key={filter.id}
@@ -95,7 +95,7 @@ export function ControlBar({
                 <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
                     <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-md">
                         <Select value={dateField} onValueChange={onDateFieldChange}>
-                            <SelectTrigger className="h-8 w-[140px] border-0 bg-transparent focus:ring-0">
+                            <SelectTrigger className="h-9 w-[140px] border-0 bg-transparent focus:ring-0">
                                 <SelectValue placeholder="Fecha" />
                             </SelectTrigger>
                             <SelectContent>
@@ -109,6 +109,7 @@ export function ControlBar({
                             value={dateRange}
                             onChange={onDateRangeChange}
                             onClear={() => onDateRangeChange({ from: null, to: null })}
+                            className="h-9"
                         />
                     </div>
 
@@ -117,7 +118,7 @@ export function ControlBar({
                             variant={viewMode === "table" ? "secondary" : "ghost"}
                             size="sm"
                             onClick={() => onViewModeChange("table")}
-                            className="h-8 w-8 p-0"
+                            className="h-9 w-9 p-0"
                         >
                             <List className="h-4 w-4" />
                         </Button>
@@ -125,7 +126,7 @@ export function ControlBar({
                             variant={viewMode === "cards" ? "secondary" : "ghost"}
                             size="sm"
                             onClick={() => onViewModeChange("cards")}
-                            className="h-8 w-8 p-0"
+                            className="h-9 w-9 p-0"
                         >
                             <LayoutGrid className="h-4 w-4" />
                         </Button>
