@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { Grant, GrantsResponse } from "@/types"
-import { QuickFilters, QuickFilter } from "@/components/QuickFilters"
+import { QuickFilter } from "@/components/QuickFilters"
 import {
   AdvancedFilterPanel,
   AdvancedFilters,
@@ -10,13 +10,21 @@ import { GrantsTable } from "@/components/GrantsTable"
 import { ConvocatoriaGrid } from "@/components/ConvocatoriaCard"
 import { GrantDetailDrawer } from "@/components/GrantDetailDrawer"
 import { CaptureConfigDialog, CaptureConfigValues } from "@/components/CaptureConfigDialog"
-import { DateRangePicker, DateRange } from "@/components/DateRangePicker"
+import { DateRange } from "@/components/DateRangePicker"
 import { ActiveFilters } from "@/components/ActiveFilters"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { LayoutGrid, List, Filter, Download, RefreshCw, Send, Database } from "lucide-react"
+import { RefreshCw, Database, Download } from "lucide-react"
 import { getApiUrl } from "@/config/api"
+import { ControlBar } from "@/components/ControlBar"
+import { FloatingActionBar } from "@/components/FloatingActionBar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 type ViewMode = "table" | "cards"
 
@@ -34,12 +42,14 @@ export default function GrantsPage() {
   const [captureSource, setCaptureSource] = useState<"BDNS" | "BOE">("BDNS")
   const [showN8nProcessingBanner, setShowN8nProcessingBanner] = useState(false)
 
+  // UI State
+  const [activeTab, setActiveTab] = useState("all")
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+
   // Quick filters
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([
-    { id: "open", label: "Abiertas", active: false },
-    { id: "high_budget", label: ">€500k", active: false },
     { id: "nonprofit", label: "Nonprofit", active: false },
-    { id: "sent_n8n", label: "Enviados N8n", active: false },
+    { id: "high_budget", label: ">€500k", active: false },
   ])
 
   // Advanced filters
@@ -53,7 +63,7 @@ export default function GrantsPage() {
   // Load grants
   useEffect(() => {
     loadGrants()
-  }, [advancedFilters, quickFilters, dateRange, dateField])
+  }, [advancedFilters, quickFilters, dateRange, dateField, activeTab])
 
   const loadGrants = async () => {
     // Preserve scroll position
@@ -68,6 +78,10 @@ export default function GrantsPage() {
       params.append("date_field", dateField)
       if (dateRange.from) params.append("date_from", dateRange.from)
       if (dateRange.to) params.append("date_to", dateRange.to)
+
+      // Apply Tab filters
+      if (activeTab === "open") params.append("is_open", "true")
+      if (activeTab === "n8n") params.append("sent_to_n8n", "true")
 
       // Apply advanced filters
       if (advancedFilters.search) params.append("search", advancedFilters.search)
@@ -88,17 +102,11 @@ export default function GrantsPage() {
       const activeQuickFilters = quickFilters.filter((f) => f.active)
       activeQuickFilters.forEach((filter) => {
         switch (filter.id) {
-          case "open":
-            params.append("is_open", "true")
-            break
           case "high_budget":
             params.append("budget_min", "500000")
             break
           case "nonprofit":
             params.append("is_nonprofit", "true")
-            break
-          case "sent_n8n":
-            params.append("sent_to_n8n", "true")
             break
         }
       })
@@ -225,10 +233,6 @@ export default function GrantsPage() {
     )
   }
 
-  const handleClearQuickFilters = () => {
-    setQuickFilters((prev) => prev.map((f) => ({ ...f, active: false })))
-  }
-
   const handleRemoveQuickFilter = (filterId: string) => {
     setQuickFilters((prev) =>
       prev.map((f) => (f.id === filterId ? { ...f, active: false } : f))
@@ -339,7 +343,7 @@ export default function GrantsPage() {
   const handleDeleteIndividual = async (grantId: string) => {
     setError(null)
     try {
-      const response = await fetch(getApiUrl('/api/v1/grants/${grantId}'), {
+      const response = await fetch(getApiUrl(`/api/v1/grants/${grantId}`), {
         method: "DELETE",
       })
 
@@ -356,6 +360,33 @@ export default function GrantsPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error eliminando")
     }
+  }
+
+  const handleExportSelected = () => {
+    const selectedGrants = grants.filter(g => selectedIds.has(g.id))
+    const csv = [
+      ["Título", "Organismo", "Presupuesto", "Fecha Fin", "Estado", "Fuente"].join(
+        ","
+      ),
+      ...selectedGrants.map((g) =>
+        [
+          `"${g.title}"`,
+          `"${g.department || ""}"`,
+          g.budget_amount || 0,
+          g.application_end_date || "",
+          g.is_open ? "Abierta" : "Cerrada",
+          g.source,
+        ].join(",")
+      ),
+    ].join("\n")
+
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `grants-selected-${new Date().toISOString().split("T")[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleExportAll = () => {
@@ -384,6 +415,21 @@ export default function GrantsPage() {
     URL.revokeObjectURL(url)
   }
 
+  const hasActiveFilters = !!(
+    quickFilters.some((f) => f.active) ||
+    dateRange.from ||
+    dateRange.to ||
+    advancedFilters.search ||
+    advancedFilters.department ||
+    advancedFilters.budgetMin > 0 ||
+    advancedFilters.budgetMax < 10000000 ||
+    advancedFilters.confidenceMin > 0 ||
+    advancedFilters.source ||
+    advancedFilters.isOpen !== null ||
+    advancedFilters.sentToN8n !== null ||
+    advancedFilters.isNonprofit
+  )
+
   return (
     <div className="container mx-auto px-4 py-6 space-y-6 max-w-7xl">
       {/* N8n Processing Banner */}
@@ -406,198 +452,99 @@ export default function GrantsPage() {
       )}
 
       {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <CardTitle className="text-3xl font-bold">
-                  Convocatorias
-                </CardTitle>
-                <p className="text-muted-foreground mt-1">
-                  Gestiona y explora subvenciones y grants
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="text-sm">
-                  {grants.length} total
-                </Badge>
-                {selectedIds.size > 0 && (
-                  <Badge variant="default" className="text-sm">
-                    {selectedIds.size} seleccionado
-                    {selectedIds.size !== 1 ? "s" : ""}
-                  </Badge>
-                )}
-              </div>
-            </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Gestión de Subvenciones</h1>
+          <p className="text-muted-foreground mt-1">
+            Base de datos de ayudas capturadas
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="text-sm h-9 px-3">
+            {grants.length} resultados
+          </Badge>
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={() => handleOpenCaptureDialog("BDNS")}
-                disabled={capturing}
-                variant="default"
-                className="gap-2"
-              >
+          <Button
+            onClick={loadGrants}
+            disabled={loading}
+            variant="outline"
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
+
+          <Button
+            onClick={handleExportAll}
+            variant="outline"
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Exportar CSV
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="gap-2">
                 <Database className="h-4 w-4" />
-                {capturing ? "Capturando..." : "Capturar BDNS"}
+                Importar Datos
               </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleOpenCaptureDialog("BDNS")}>
+                Capturar BDNS
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenCaptureDialog("BOE")}>
+                Capturar BOE
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
 
-              <Button
-                onClick={() => handleOpenCaptureDialog("BOE")}
-                disabled={capturing}
-                variant="default"
-                className="gap-2 bg-orange-600 hover:bg-orange-700"
-              >
-                <Database className="h-4 w-4" />
-                {capturing ? "Capturando..." : "Capturar BOE"}
-              </Button>
-
-              <Button
-                onClick={sendToN8n}
-                disabled={sending || selectedIds.size === 0}
-                variant="default"
-                className="gap-2 bg-green-600 hover:bg-green-700"
-              >
-                <Send className="h-4 w-4" />
-                {sending
-                  ? "Enviando..."
-                  : `Enviar a N8n (${selectedIds.size})`}
-              </Button>
-
-              <Button
-                onClick={loadGrants}
-                disabled={loading}
-                variant="outline"
-                className="gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Actualizar
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {/* Quick Filters */}
-      <QuickFilters
-        filters={quickFilters}
-        onToggle={handleQuickFilterToggle}
-        onClearAll={handleClearQuickFilters}
+      {/* Control Bar */}
+      <ControlBar
+        searchValue={advancedFilters.search}
+        onSearchChange={(val) => setAdvancedFilters(prev => ({ ...prev, search: val }))}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        quickFilters={quickFilters}
+        onToggleQuickFilter={handleQuickFilterToggle}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        dateField={dateField}
+        onDateFieldChange={setDateField}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onToggleAdvancedFilters={() => setShowAdvancedFilters(!showAdvancedFilters)}
+        hasActiveAdvancedFilters={hasActiveFilters}
       />
 
-      {/* Date Range Filter */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-muted-foreground">
-                Filtrar por:
-              </span>
-              <select
-                className="h-9 w-[180px] rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                value={dateField}
-                onChange={(e) => setDateField(e.target.value)}
-              >
-                <option value="application_end_date">Fecha Límite</option>
-                <option value="publication_date">Fecha Publicación</option>
-                <option value="captured_at">Fecha Captura</option>
-              </select>
-            </div>
-            <div className="h-4 w-px bg-border hidden sm:block" />
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium text-muted-foreground">
-                Rango:
-              </span>
-              <DateRangePicker
-                value={dateRange}
-                onChange={setDateRange}
-                onClear={() => setDateRange({ from: null, to: null })}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Advanced Filters Panel (Collapsible) */}
+      {showAdvancedFilters && (
+        <Card className="bg-muted/30">
+          <CardContent className="p-4">
+            <AdvancedFilterPanel
+              filters={advancedFilters}
+              onFiltersChange={setAdvancedFilters}
+              onClear={() => setAdvancedFilters(DEFAULT_FILTERS)}
+            />
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Active Filters - only show if there are active filters */}
-      {(quickFilters.some((f) => f.active) ||
-        dateRange.from ||
-        dateRange.to ||
-        advancedFilters.search ||
-        advancedFilters.department ||
-        advancedFilters.budgetMin > 0 ||
-        advancedFilters.budgetMax < 10000000 ||
-        advancedFilters.confidenceMin > 0 ||
-        advancedFilters.source ||
-        advancedFilters.isOpen !== null ||
-        advancedFilters.sentToN8n !== null ||
-        advancedFilters.isNonprofit) && (
-          <Card>
-            <CardContent className="p-4">
-              <ActiveFilters
-                quickFilters={quickFilters}
-                advancedFilters={advancedFilters}
-                dateRange={dateRange}
-                onRemoveQuickFilter={handleRemoveQuickFilter}
-                onRemoveAdvancedFilter={handleRemoveAdvancedFilter}
-                onClearDateRange={() => setDateRange({ from: null, to: null })}
-                onClearAll={handleClearAllFilters}
-              />
-            </CardContent>
-          </Card>
-        )}
-
-      {/* Controls Bar */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <AdvancedFilterPanel
-                filters={advancedFilters}
-                onFiltersChange={setAdvancedFilters}
-                onClear={() => setAdvancedFilters(DEFAULT_FILTERS)}
-              >
-                <Button variant="outline" className="gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filtros Avanzados
-                </Button>
-              </AdvancedFilterPanel>
-
-              <Button
-                variant="outline"
-                size="default"
-                onClick={handleExportAll}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Exportar Todo
-              </Button>
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 border rounded-lg p-1">
-              <Button
-                variant={viewMode === "table" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("table")}
-                className="gap-2"
-              >
-                <List className="h-4 w-4" />
-                Tabla
-              </Button>
-              <Button
-                variant={viewMode === "cards" ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setViewMode("cards")}
-                className="gap-2"
-              >
-                <LayoutGrid className="h-4 w-4" />
-                Tarjetas
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Active Filters Summary */}
+      {hasActiveFilters && (
+        <ActiveFilters
+          quickFilters={quickFilters}
+          advancedFilters={advancedFilters}
+          dateRange={dateRange}
+          onRemoveQuickFilter={handleRemoveQuickFilter}
+          onRemoveAdvancedFilter={handleRemoveAdvancedFilter}
+          onClearDateRange={() => setDateRange({ from: null, to: null })}
+          onClearAll={handleClearAllFilters}
+        />
+      )}
 
       {/* Error Display */}
       {error && (
@@ -647,6 +594,22 @@ export default function GrantsPage() {
         onCapture={handleCapture}
         onCancel={() => setCaptureDialogOpen(false)}
         isCapturing={capturing}
+      />
+
+      {/* Floating Action Bar */}
+      <FloatingActionBar
+        selectedCount={selectedIds.size}
+        onSendToN8n={sendToN8n}
+        onDelete={() => {
+          // Bulk delete not implemented in backend yet, but we can iterate or add endpoint
+          // For now, let's just alert or implement iteration
+          if (confirm(`¿Estás seguro de eliminar ${selectedIds.size} grants?`)) {
+            selectedIds.forEach(id => handleDeleteIndividual(id))
+          }
+        }}
+        onExport={handleExportSelected}
+        onClearSelection={() => setSelectedIds(new Set())}
+        sending={sending}
       />
     </div>
   )
