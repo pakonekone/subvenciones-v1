@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from "lucide-react"
+import { GrantChat } from "@/components/GrantChat"
 import { cn } from "@/lib/utils"
 
 interface GrantDetailDrawerProps {
@@ -392,44 +393,8 @@ export function GrantDetailDrawer({ grant, open, onClose }: GrantDetailDrawerPro
           </TabsContent>
 
           {/* Tab 3: AI Analysis */}
-          <TabsContent value="ai" className="space-y-6 mt-6">
-            <div className="rounded-lg border bg-muted/50 p-6 text-center">
-              <Bot className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="font-semibold mb-2">Análisis AI no disponible</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                El análisis mediante inteligencia artificial estará disponible próximamente.
-              </p>
-              {!grant.sent_to_n8n && (
-                <p className="text-xs text-muted-foreground">
-                  Esta convocatoria debe ser enviada a N8n primero para habilitar el
-                  análisis AI.
-                </p>
-              )}
-            </div>
-
-            {grant.sent_to_n8n && (
-              <div className="space-y-4">
-                <div className="rounded-lg border p-4">
-                  <p className="text-sm font-medium mb-2">Estado del análisis</p>
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-                    <span className="text-sm text-muted-foreground">
-                      En cola de procesamiento
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-xs text-muted-foreground">
-                  Una vez procesado, aquí aparecerá:
-                  <ul className="list-disc list-inside mt-2 space-y-1">
-                    <li>Resumen ejecutivo generado por AI</li>
-                    <li>Puntos clave de la convocatoria</li>
-                    <li>Requisitos principales</li>
-                    <li>Recomendaciones personalizadas</li>
-                  </ul>
-                </div>
-              </div>
-            )}
+          <TabsContent value="ai" className="space-y-6 mt-6 h-full">
+            <GrantChat grant={grant} />
           </TabsContent>
         </Tabs>
       </SheetContent>

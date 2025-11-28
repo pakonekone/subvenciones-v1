@@ -16,6 +16,7 @@ class Settings(BaseSettings):
 
     # N8n Integration
     n8n_webhook_url: str = ""
+    n8n_chat_webhook_url: str = ""
     n8n_api_key: str = ""
 
     # BOE/BDNS Configuration

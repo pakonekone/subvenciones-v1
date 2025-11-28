@@ -188,3 +188,69 @@ class N8nService:
                 "error": str(e),
                 "webhook_url": self.webhook_url
             }
+    async def send_chat_message(self, grant_id: str, message: str, history: list) -> Dict[str, Any]:
+        """
+        Envía un mensaje de chat a N8n junto con el contexto del grant
+        
+        Args:
+            grant_id: ID del grant
+            message: Mensaje del usuario
+            history: Historial de chat previo
+            
+        Returns:
+            Respuesta del agente AI
+        """
+        grant = self.db.query(Grant).filter(Grant.id == grant_id).first()
+        
+        if not grant:
+            return {
+                "success": False,
+                "error": f"Grant {grant_id} not found"
+            }
+            
+        chat_webhook_url = settings.n8n_chat_webhook_url
+        print(f"DEBUG: Chat Webhook URL: '{chat_webhook_url}'")
+        
+        if not chat_webhook_url:
+            print("DEBUG: N8N_CHAT_WEBHOOK_URL is empty or not set")
+            # Fallback for prototype if not set
+            return {
+                "success": False,
+                "error": "N8N_CHAT_WEBHOOK_URL not configured"
+            }
+
+        # Construct payload with context + chat
+        payload = {
+            "grant": grant.to_n8n_payload(),
+            "chat": {
+                "message": message,
+                "history": history
+            }
+        }
+        print(f"DEBUG: Sending payload to N8n: {payload.keys()}")
+        
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    chat_webhook_url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                response.raise_for_status()
+                
+                try:
+                    response_data = response.json()
+                except ValueError:
+                    # Handle non-JSON response (e.g. plain text)
+                    response_data = {"output": response.text}
+
+                return {
+                    "success": True,
+                    "response": response_data
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }

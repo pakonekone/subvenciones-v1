@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 
 from app.database import get_db
@@ -242,3 +242,33 @@ async def delete_grant(
         "success": True,
         "message": f"Grant {grant_id} eliminado correctamente"
     }
+
+
+class ChatRequest(BaseModel):
+    """Request para el chat con AI"""
+    message: str
+    history: List[Dict[str, str]] = []
+
+
+@router.post("/{grant_id}/chat")
+async def chat_with_grant(
+    grant_id: str,
+    request: ChatRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Envía un mensaje al analista AI sobre un grant específico
+    """
+    from app.services.n8n_service import N8nService
+    
+    service = N8nService(db)
+    result = await service.send_chat_message(
+        grant_id=grant_id,
+        message=request.message,
+        history=request.history
+    )
+    
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result.get("error", "Error en el chat AI"))
+        
+    return result
