@@ -245,12 +245,83 @@ export function GrantDetailDrawer({ grant, open, onClose }: GrantDetailDrawerPro
               </>
             )}
 
+            {/* PLACSP Specific Fields */}
+            {grant.source === 'PLACSP' && (
+              <>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <FileText className="h-4 w-4" />
+                    Datos de Licitación
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {grant.placsp_folder_id && (
+                      <div>
+                        <span className="text-xs text-muted-foreground block">Expediente</span>
+                        <span className="text-sm font-medium">{grant.placsp_folder_id}</span>
+                      </div>
+                    )}
+                    {grant.contract_type && (
+                      <div>
+                        <span className="text-xs text-muted-foreground block">Tipo Contrato</span>
+                        <span className="text-sm font-medium">{grant.contract_type}</span>
+                      </div>
+                    )}
+                  </div>
+                  {grant.cpv_codes && grant.cpv_codes.length > 0 && (
+                    <div>
+                      <span className="text-xs text-muted-foreground block mb-1">Códigos CPV</span>
+                      <div className="flex flex-wrap gap-1">
+                        {grant.cpv_codes.map((code, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {code}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <Separator />
+              </>
+            )}
+
             {/* Links */}
             <div className="space-y-3">
               <div className="text-sm font-medium text-muted-foreground">
                 Enlaces útiles
               </div>
               <div className="flex flex-col gap-2">
+                {grant.html_url && (
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    asChild
+                  >
+                    <a
+                      href={grant.html_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Ver Publicación Oficial (PLACSP)
+                    </a>
+                  </Button>
+                )}
+                {grant.pdf_url && (
+                  <Button
+                    variant="outline"
+                    className="justify-start gap-2"
+                    asChild
+                  >
+                    <a
+                      href={grant.pdf_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Ver Pliego / Anuncio (PDF)
+                    </a>
+                  </Button>
+                )}
                 {grant.regulatory_base_url && (
                   <Button
                     variant="outline"

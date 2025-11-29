@@ -37,6 +37,11 @@ class GrantListItem(BaseModel):
     electronic_office: Optional[str]
     google_sheets_exported: bool = False
     google_sheets_url: Optional[str] = None
+    # PLACSP fields
+    placsp_folder_id: Optional[str] = None
+    contract_type: Optional[str] = None
+    cpv_codes: Optional[List[str]] = None
+    pdf_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -69,6 +74,12 @@ class GrantDetail(BaseModel):
     google_sheets_exported_at: Optional[datetime] = None
     google_sheets_row_id: Optional[str] = None
     google_sheets_url: Optional[str] = None
+    html_url: Optional[str] = None
+    # PLACSP fields
+    placsp_folder_id: Optional[str] = None
+    contract_type: Optional[str] = None
+    cpv_codes: Optional[List[str]] = None
+    pdf_url: Optional[str] = None
 
     class Config:
         from_attributes = True

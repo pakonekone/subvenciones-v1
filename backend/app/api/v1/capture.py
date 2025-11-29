@@ -110,3 +110,37 @@ async def get_capture_status(db: Session = Depends(get_db)):
         "unsent_to_n8n": unsent,
         "source": "BDNS"
     }
+
+
+@router.post("/placsp", response_model=CaptureResponse)
+async def capture_placsp_grants(
+    request: CaptureRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """
+    Captura licitaciones de PLACSP con filtro nonprofit
+    """
+    try:
+        from app.services import PLACSPService
+        placsp_service = PLACSPService(db)
+
+        # Usar days_back (default 1)
+        days_back = request.days_back or 1
+        
+        stats = placsp_service.capture_recent_grants(
+            days_back=days_back,
+            max_pages=10 # Limit pages for safety
+        )
+
+        return CaptureResponse(
+            success=True,
+            message=f"Captura PLACSP completada: {stats['total_new']} nuevas licitaciones",
+            stats=stats
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error capturando PLACSP: {str(e)}"
+        )

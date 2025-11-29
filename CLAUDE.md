@@ -87,10 +87,15 @@ The backend follows a layered architecture with clear separation of concerns:
 - `grants.py` - CRUD operations for grants (list with filters, get by ID, delete, bulk operations)
 - `capture.py` - BDNS capture with **date range selection** (fecha_desde/fecha_hasta)
 - `capture_boe.py` - BOE capture with PDF processing
-- `webhook.py` - **Bidirectional N8n integration**:
+- `webhook.py` - **AI Chat Analyst**: Interactive chat for analyzing grants using N8n workflow.
   - Send grants to N8n for AI analysis
   - Receive analysis callbacks (priority, strategic_value)
   - Receive Google Sheets export callbacks (tracking webhook)
+- **PLACSP Integration**: Full integration with Public Sector Contracting Platform.
+  - Atom feed capture with pagination and deep linking.
+  - Robust XML parsing (CODICE/Atom) with `html_url` extraction.
+  - Configurable filters with persistence (`filter_profiles.json`).
+  - [Technical Documentation](docs/PLACSP/technical_documentation.md)
 - `filters.py` - **Filter transparency endpoints** (expose BDNS/BOE keywords)
 - `analytics.py` - Dashboard metrics and statistics
 - `endpoints/exports.py` - Excel export functionality
@@ -250,6 +255,17 @@ PostgreSQL runs on **port 5433** (not default 5432) to avoid conflicts:
    - **Analysis callback**: N8n returns AI analysis (priority, strategic_value)
    - **Sheets callback**: N8n confirms successful Google Sheets export with URL and row ID
 
+### AI Analyst Chat
+
+**Interactive Chat System**:
+- **Frontend**: `GrantChat` component embedded in `GrantDetailDrawer`
+- **Backend**: Proxy endpoint `POST /api/v1/grants/{id}/chat`
+- **N8n Integration**:
+  - Dedicated webhook: `N8N_CHAT_WEBHOOK_URL`
+  - Payload: `{ grant: {...}, chat: { message, history } }`
+  - Response: `{ output: "Markdown text..." }`
+- **Flow**: User message → Backend → N8n Webhook → AI Agent (with grant context) → N8n Response → Backend → Frontend UI
+
 ## Important Patterns
 
 ### Service Layer Pattern
@@ -323,6 +339,7 @@ response = client.get("/api/v1/grants")
 Key variables (see `backend/.env.example`):
 - `DATABASE_URL` - PostgreSQL connection string
 - `N8N_WEBHOOK_URL` - N8n webhook endpoint for grant analysis
+- `N8N_CHAT_WEBHOOK_URL` - N8n webhook for interactive chat agent
 - `BDNS_MAX_RESULTS` - Limit for BDNS API queries (default: 50)
 - `MIN_RELEVANCE_SCORE` - Informational threshold (default: 0.0, no filtering)
 - `CORS_ORIGINS` - Allowed frontend origins (comma-separated)
@@ -365,6 +382,12 @@ Key variables (see `backend/.env.example`):
    - Automatic PDF processing
    - Nonprofit keyword filtering
    - Relevance scoring (informational)
+
+8. **AI Analyst Chat (2025-11-26)**
+   - Interactive chat with AI agent about specific grants
+   - Context-aware responses (sends full grant data to N8n)
+   - Markdown support for rich text responses
+   - Ephemeral chat history (per session)
 
 ### 🔄 In Progress (see TODO.md)
 

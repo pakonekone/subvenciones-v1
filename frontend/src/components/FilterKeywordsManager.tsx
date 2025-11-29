@@ -27,6 +27,7 @@ interface KeywordsData {
 }
 
 export function FilterKeywordsManager({ open, onClose }: FilterKeywordsManagerProps) {
+  const [placspKeywords, setPlacspKeywords] = useState<string[]>([])
   const [bdnsKeywords, setBdnsKeywords] = useState<string[]>([])
   const [boeGrantKeywords, setBoeGrantKeywords] = useState<string[]>([])
   const [boeNonprofitKeywords, setBoeNonprofitKeywords] = useState<string[]>([])
@@ -35,7 +36,7 @@ export function FilterKeywordsManager({ open, onClose }: FilterKeywordsManagerPr
   const [newKeyword, setNewKeyword] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("bdns")
+  const [activeTab, setActiveTab] = useState("placsp")
 
   // Load filters from API on mount
   useEffect(() => {
@@ -58,6 +59,12 @@ export function FilterKeywordsManager({ open, onClose }: FilterKeywordsManagerPr
       setBoeGrantKeywords(boeData.grant_keywords?.keywords || [])
       setBoeNonprofitKeywords(boeData.nonprofit_keywords?.keywords || [])
       setBoeSections(boeData.sections?.sections || [])
+
+      // Load PLACSP filters
+      const placspRes = await fetch(getApiUrl("/api/v1/filters/placsp"))
+      const placspData = await placspRes.json()
+      setPlacspKeywords(placspData.keywords || [])
+
     } catch (error) {
       console.error("Error loading filters:", error)
     } finally {
@@ -82,18 +89,24 @@ export function FilterKeywordsManager({ open, onClose }: FilterKeywordsManagerPr
       if (!boeNonprofitKeywords.includes(keyword)) {
         setBoeNonprofitKeywords([...boeNonprofitKeywords, keyword])
       }
+    } else if (activeTab === "placsp") {
+      if (!placspKeywords.includes(keyword)) {
+        setPlacspKeywords([...placspKeywords, keyword])
+      }
     }
 
     setNewKeyword("")
   }
 
-  const handleRemoveKeyword = (keyword: string, list: "bdns" | "boe-grants" | "boe-nonprofit") => {
+  const handleRemoveKeyword = (keyword: string, list: "bdns" | "boe-grants" | "boe-nonprofit" | "placsp") => {
     if (list === "bdns") {
       setBdnsKeywords(bdnsKeywords.filter(k => k !== keyword))
     } else if (list === "boe-grants") {
       setBoeGrantKeywords(boeGrantKeywords.filter(k => k !== keyword))
     } else if (list === "boe-nonprofit") {
       setBoeNonprofitKeywords(boeNonprofitKeywords.filter(k => k !== keyword))
+    } else if (list === "placsp") {
+      setPlacspKeywords(placspKeywords.filter(k => k !== keyword))
     }
   }
 
@@ -103,15 +116,32 @@ export function FilterKeywordsManager({ open, onClose }: FilterKeywordsManagerPr
     }
   }
 
-  const handleSave = () => {
-    // For now, just save to localStorage
-    // Future: POST to /api/v1/filters/bdns and /api/v1/filters/boe
-    localStorage.setItem("bdns_keywords", JSON.stringify(bdnsKeywords))
-    localStorage.setItem("boe_grant_keywords", JSON.stringify(boeGrantKeywords))
-    localStorage.setItem("boe_nonprofit_keywords", JSON.stringify(boeNonprofitKeywords))
+  const handleSave = async () => {
+    try {
+      setLoading(true)
 
-    alert("✅ Filtros guardados correctamente (localStorage)")
-    onClose()
+      // Save PLACSP filters
+      await fetch(getApiUrl("/api/v1/filters/placsp"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keywords: placspKeywords })
+      })
+
+      // Note: BDNS and BOE endpoints for update are not implemented yet in backend
+      // So we only save PLACSP for now as requested
+
+      localStorage.setItem("bdns_keywords", JSON.stringify(bdnsKeywords))
+      localStorage.setItem("boe_grant_keywords", JSON.stringify(boeGrantKeywords))
+      localStorage.setItem("boe_nonprofit_keywords", JSON.stringify(boeNonprofitKeywords))
+
+      alert("✅ Filtros PLACSP guardados correctamente en servidor.")
+      onClose()
+    } catch (error) {
+      console.error("Error saving filters:", error)
+      alert("❌ Error guardando filtros")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const filterKeywords = (keywords: string[]) => {
@@ -145,9 +175,12 @@ export function FilterKeywordsManager({ open, onClose }: FilterKeywordsManagerPr
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="placsp">
+              PLACSP ({placspKeywords.length})
+            </TabsTrigger>
             <TabsTrigger value="bdns">
-              BDNS Nonprofit ({bdnsKeywords.length})
+              BDNS ({bdnsKeywords.length})
             </TabsTrigger>
             <TabsTrigger value="boe-grants">
               BOE Grants ({boeGrantKeywords.length})
@@ -156,6 +189,68 @@ export function FilterKeywordsManager({ open, onClose }: FilterKeywordsManagerPr
               BOE Nonprofit ({boeNonprofitKeywords.length})
             </TabsTrigger>
           </TabsList>
+
+          {/* PLACSP Tab */}
+          <TabsContent value="placsp" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Keywords PLACSP</CardTitle>
+                <CardDescription>
+                  Palabras clave para identificar licitaciones relevantes en la Plataforma de Contratación.
+                  Se buscan en el título y resumen.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar keyword..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Añadir nueva keyword..."
+                    value={newKeyword}
+                    onChange={(e) => setNewKeyword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddKeyword()}
+                  />
+                  <Button onClick={handleAddKeyword} size="icon">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 min-h-[200px] max-h-[300px] overflow-y-auto border rounded-lg p-4 bg-muted/20">
+                  {filterKeywords(placspKeywords).length === 0 ? (
+                    <div className="w-full text-center text-sm text-muted-foreground py-8">
+                      {searchQuery ? "No se encontraron keywords" : "No hay keywords configuradas"}
+                    </div>
+                  ) : (
+                    filterKeywords(placspKeywords).map((keyword) => (
+                      <Badge
+                        key={keyword}
+                        variant="secondary"
+                        className="gap-1 pr-1 cursor-pointer hover:bg-secondary/80"
+                      >
+                        {keyword}
+                        <button
+                          onClick={() => handleRemoveKeyword(keyword, "placsp")}
+                          className="ml-1 rounded-full hover:bg-destructive hover:text-destructive-foreground p-0.5"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           {/* BDNS Tab */}
           <TabsContent value="bdns" className="space-y-4">

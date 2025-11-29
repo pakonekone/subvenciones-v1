@@ -123,6 +123,17 @@ async def get_filters_summary():
 
     Useful for showing in the UI before capture
     """
+    # Get PLACSP keywords count
+    from app.shared.filters import GrantFilter
+    filter_engine = GrantFilter()
+    placsp_profile = filter_engine.get_profile("test_placsp")
+    placsp_keywords = []
+    if placsp_profile:
+        for rule in placsp_profile.rules:
+            if rule.name == "generic_terms":
+                placsp_keywords = rule.value
+                break
+
     return {
         "bdns": {
             "total_keywords": len(DEFAULT_BDNS_NONPROFIT_KEYWORDS),
@@ -135,12 +146,72 @@ async def get_filters_summary():
             "total_sections": len(BOE_RELEVANT_SECTIONS),
             "sections": BOE_RELEVANT_SECTIONS,
             "relevance_filtering": "Informational only (not excluding)"
+        },
+        "placsp": {
+            "total_keywords": len(placsp_keywords),
+            "sample_keywords": placsp_keywords[:5],
+            "filter_mode": "Required match (generic terms)"
         }
     }
 
 
-# Note: POST endpoints for updating keywords would require:
-# - Saving to a config file or database
-# - Reloading the services with new keywords
-# - For now, we return the defaults for viewing
-# Future enhancement: Allow dynamic keyword management
+@router.get("/placsp", response_model=Dict[str, Any])
+async def get_placsp_filters():
+    """
+    Get PLACSP filter keywords
+    """
+    from app.shared.filters import GrantFilter
+    
+    filter_engine = GrantFilter()
+    profile = filter_engine.get_profile("test_placsp")
+    
+    keywords = []
+    if profile:
+        for rule in profile.rules:
+            if rule.name == "generic_terms":
+                keywords = rule.value
+                break
+                
+    return {
+        "keywords": keywords,
+        "total": len(keywords),
+        "description": profile.description if profile else "Perfil PLACSP"
+    }
+
+
+@router.post("/placsp")
+async def update_placsp_filters(request: UpdateKeywordsRequest):
+    """
+    Update PLACSP filter keywords
+    """
+    from app.shared.filters import GrantFilter, FilterRule, FilterType
+    
+    filter_engine = GrantFilter()
+    profile = filter_engine.get_profile("test_placsp")
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+        
+    # Update the generic_terms rule
+    updated = False
+    for rule in profile.rules:
+        if rule.name == "generic_terms":
+            rule.value = request.keywords
+            updated = True
+            break
+            
+    if not updated:
+        # Create if not exists
+        profile.rules.append(FilterRule(
+            "generic_terms", 
+            FilterType.INCLUDE,
+            request.keywords,
+            weight=1.0, 
+            required=True, 
+            description="Términos genéricos de contratación"
+        ))
+    
+    # Save changes
+    filter_engine.save_profiles_to_file(filter_engine.profiles_file)
+    
+    return {"success": True, "message": "Filtros actualizados correctamente"}

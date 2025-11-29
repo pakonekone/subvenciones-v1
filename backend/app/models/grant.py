@@ -46,6 +46,12 @@ class Grant(Base):
     # BOE specific field
     boe_id = Column(String, index=True)  # Identificador BOE (BOE-A-XXXX)
 
+    # PLACSP specific fields
+    placsp_folder_id = Column(String, index=True)  # ContractFolderID (EXP-...)
+    contract_type = Column(String)  # Tipo de contrato (Obras, Servicios...)
+    cpv_codes = Column(JSON)  # Códigos CPV
+    tender_value_estimated = Column(Float)  # Valor estimado del contrato
+
     # Budget & Amounts
     budget_amount = Column(Float, index=True)  # Montante económico
     
@@ -120,6 +126,12 @@ class Grant(Base):
             "google_sheets_exported": self.google_sheets_exported,
             "google_sheets_exported_at": self.google_sheets_exported_at.isoformat() if self.google_sheets_exported_at else None,
             "google_sheets_url": self.google_sheets_url,
+            "html_url": self.html_url,
+            # PLACSP fields
+            "placsp_folder_id": self.placsp_folder_id,
+            "contract_type": self.contract_type,
+            "cpv_codes": self.cpv_codes,
+            "pdf_url": self.pdf_url,
         }
     
     def to_n8n_payload(self):

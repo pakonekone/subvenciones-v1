@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     """Application settings"""
 
     # Database
-    database_url: str = "postgresql://postgres:postgres@127.0.0.1:5433/subvenciones"
+    database_url: str = "postgresql://franconejosmengo@localhost:5432/subvenciones"
     db_echo: bool = False
 
     # N8n Integration
@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     min_relevance_score: float = 0.3
     bdns_max_results: int = 50
     process_pdfs: bool = True
+    placsp_feed_url: str = "https://contrataciondelestado.es/sindicacion/sindicacion_643/licitacionesPerfilesContratanteCompleto3.atom"
 
     # Server
     api_host: str = "0.0.0.0"

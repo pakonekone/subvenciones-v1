@@ -39,7 +39,7 @@ export default function GrantsPage() {
   const [capturing, setCapturing] = useState(false)
   const [sending, setSending] = useState(false)
   const [captureDialogOpen, setCaptureDialogOpen] = useState(false)
-  const [captureSource, setCaptureSource] = useState<"BDNS" | "BOE">("BDNS")
+  const [captureSource, setCaptureSource] = useState<"BDNS" | "BOE" | "PLACSP">("BDNS")
   const [showN8nProcessingBanner, setShowN8nProcessingBanner] = useState(false)
 
   // UI State
@@ -135,7 +135,7 @@ export default function GrantsPage() {
     }
   }
 
-  const handleOpenCaptureDialog = (source: "BDNS" | "BOE") => {
+  const handleOpenCaptureDialog = (source: "BDNS" | "BOE" | "PLACSP") => {
     setCaptureSource(source)
     setCaptureDialogOpen(true)
   }
@@ -160,6 +160,19 @@ export default function GrantsPage() {
         const result = await response.json()
 
         const message = `✅ Captura BDNS exitosa!\n\n${result.stats.total_new} nuevos grants\n${result.stats.total_updated} actualizados\n${result.stats.total_nonprofit} nonprofit`
+        alert(message)
+      } else if (captureSource === "PLACSP") {
+        const response = await fetch(getApiUrl('/api/v1/capture/placsp'), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            days_back: config.days_back || 1
+          }),
+        })
+        if (!response.ok) throw new Error("Error capturando licitaciones de PLACSP")
+        const result = await response.json()
+
+        const message = `✅ Captura PLACSP exitosa!\n\n${result.stats.total_new} nuevas licitaciones\n${result.stats.total_updated} actualizadas\n${result.stats.total_nonprofit} nonprofit`
         alert(message)
       } else {
         const response = await fetch(getApiUrl('/api/v1/capture/boe'), {
@@ -496,6 +509,9 @@ export default function GrantsPage() {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleOpenCaptureDialog("BOE")}>
                 Capturar BOE
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleOpenCaptureDialog("PLACSP")}>
+                Capturar PLACSP
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

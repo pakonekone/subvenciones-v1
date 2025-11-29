@@ -21,6 +21,12 @@ export interface Grant {
   google_sheets_exported: boolean
   google_sheets_exported_at: string | null
   google_sheets_url: string | null
+  html_url?: string | null
+  // PLACSP fields
+  placsp_folder_id?: string | null
+  contract_type?: string | null
+  cpv_codes?: string[] | null
+  pdf_url?: string | null
 }
 
 export interface GrantsResponse {

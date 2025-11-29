@@ -26,7 +26,7 @@ export interface CaptureConfigValues {
 
 interface CaptureConfigDialogProps {
   open: boolean
-  source: "BDNS" | "BOE"
+  source: "BDNS" | "BOE" | "PLACSP"
   onCapture: (config: CaptureConfigValues) => void
   onCancel: () => void
   isCapturing: boolean
@@ -69,7 +69,12 @@ export function CaptureConfigDialog({
   }
 
   const isBDNS = source === "BDNS"
-  const currentFilters = isBDNS ? filtersSummary?.bdns : filtersSummary?.boe
+  const isPLACSP = source === "PLACSP"
+
+  let currentFilters = null
+  if (isBDNS) currentFilters = filtersSummary?.bdns
+  else if (isPLACSP) currentFilters = filtersSummary?.placsp
+  else currentFilters = filtersSummary?.boe
 
   return (
     <Dialog open={open} onOpenChange={onCancel}>
@@ -82,73 +87,102 @@ export function CaptureConfigDialog({
           <DialogDescription>
             {isBDNS
               ? "Configura los parámetros para la captura de grants desde la Base de Datos Nacional de Subvenciones (BDNS)."
-              : "Configura los parámetros para la captura de grants desde el Boletín Oficial del Estado (BOE)."}
+              : isPLACSP
+                ? "Configura los parámetros para la captura de licitaciones desde la Plataforma de Contratación (PLACSP)."
+                : "Configura los parámetros para la captura de grants desde el Boletín Oficial del Estado (BOE)."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-6 py-4">
-            {isBDNS ? (
+            {source === "BDNS" || source === "PLACSP" ? (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="date_from" className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Fecha desde
-                  </Label>
-                  <Input
-                    id="date_from"
-                    type="date"
-                    value={config.date_from || getTodayString()}
-                    onChange={(e) =>
-                      setConfig({ ...config, date_from: e.target.value })
-                    }
-                    required
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Fecha de inicio para la búsqueda (por defecto: hoy)
-                  </p>
-                </div>
+                {source === "PLACSP" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="days_back" className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Días hacia atrás
+                    </Label>
+                    <Input
+                      id="days_back"
+                      type="number"
+                      min="1"
+                      max="30"
+                      value={config.days_back || 1}
+                      onChange={(e) =>
+                        setConfig({ ...config, days_back: parseInt(e.target.value) })
+                      }
+                      required
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Número de días a revisar en el feed de licitaciones.
+                    </p>
+                  </div>
+                )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="date_to" className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Fecha hasta
-                  </Label>
-                  <Input
-                    id="date_to"
-                    type="date"
-                    value={config.date_to || getTodayString()}
-                    onChange={(e) =>
-                      setConfig({ ...config, date_to: e.target.value })
-                    }
-                    required
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Fecha final para la búsqueda (por defecto: hoy)
-                  </p>
-                </div>
+                {source === "BDNS" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="date_from" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Fecha desde
+                      </Label>
+                      <Input
+                        id="date_from"
+                        type="date"
+                        value={config.date_from || getTodayString()}
+                        onChange={(e) =>
+                          setConfig({ ...config, date_from: e.target.value })
+                        }
+                        required
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Fecha de inicio para la búsqueda (por defecto: hoy)
+                      </p>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="max_results" className="flex items-center gap-2">
-                    <Hash className="h-4 w-4" />
-                    Máximo de resultados
-                  </Label>
-                  <Input
-                    id="max_results"
-                    type="number"
-                    min="1"
-                    max="100"
-                    step="1"
-                    value={config.max_results || 50}
-                    onChange={(e) =>
-                      setConfig({ ...config, max_results: parseInt(e.target.value) })
-                    }
-                    required
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Número máximo de grants a capturar (1-100)
-                  </p>
-                </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="date_to" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Fecha hasta
+                      </Label>
+                      <Input
+                        id="date_to"
+                        type="date"
+                        value={config.date_to || getTodayString()}
+                        onChange={(e) =>
+                          setConfig({ ...config, date_to: e.target.value })
+                        }
+                        required
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Fecha final para la búsqueda (por defecto: hoy)
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="max_results" className="flex items-center gap-2">
+                        <Hash className="h-4 w-4" />
+                        Máximo de resultados
+                      </Label>
+                      <Input
+                        id="max_results"
+                        type="number"
+                        min="1"
+                        max="100"
+                        step="1"
+                        value={config.max_results || 50}
+                        onChange={(e) =>
+                          setConfig({ ...config, max_results: parseInt(e.target.value) })
+                        }
+                        required
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Número máximo de grants a capturar (1-100)
+                      </p>
+                    </div>
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -235,6 +269,25 @@ export function CaptureConfigDialog({
                         Modo: {currentFilters.filter_mode}
                       </div>
                     </>
+                  ) : isPLACSP ? (
+                    <>
+                      <div className="flex items-start gap-2">
+                        <Info className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
+                        <div>
+                          <span className="font-medium">{currentFilters.total_keywords} keywords</span>
+                          <span className="text-muted-foreground"> de filtrado (ej: </span>
+                          {currentFilters.sample_keywords?.slice(0, 3).map((kw: string, i: number) => (
+                            <Badge key={i} variant="secondary" className="mx-1 text-xs">
+                              {kw}
+                            </Badge>
+                          ))}
+                          <span className="text-muted-foreground">...)</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground pl-6">
+                        Modo: {currentFilters.filter_mode}
+                      </div>
+                    </>
                   ) : (
                     <>
                       <div className="flex items-start gap-2">
@@ -266,7 +319,7 @@ export function CaptureConfigDialog({
               <p className="text-sm text-blue-900 dark:text-blue-100">
                 ℹ️{" "}
                 <strong>
-                  {isBDNS
+                  {source === "BDNS" || source === "PLACSP"
                     ? "Solo se capturarán grants identificados como nonprofit con alta confianza."
                     : "El score de relevancia es informativo y NO excluye ningún grant."}
                 </strong>

@@ -61,9 +61,18 @@ class FilterProfile:
 class GrantFilter:
     """Motor de filtros para subvenciones del BOE"""
     
-    def __init__(self):
+    def __init__(self, profiles_file: str = "filter_profiles.json"):
         self.profiles = {}
-        self._init_default_profiles()
+        self.profiles_file = profiles_file
+        
+        # Try to load from file, otherwise init defaults
+        try:
+            self.load_profiles_from_file(self.profiles_file)
+            if not self.profiles:
+                self._init_default_profiles()
+        except Exception as e:
+            logger.warning(f"Could not load profiles from {self.profiles_file}: {e}. Using defaults.")
+            self._init_default_profiles()
     
     def _init_default_profiles(self):
         """Inicializa perfiles de filtros predeterminados"""
@@ -207,6 +216,20 @@ class GrantFilter:
             min_score=0.8  # Score alto para alta precisión
         ))
 
+        # Perfil de prueba para PLACSP (muy permisivo)
+        test_placsp_rules = [
+            FilterRule("generic_terms", FilterType.INCLUDE,
+                       ["contrato", "suministro", "servicio", "obra", "acuerdo marco", "licitación"],
+                       weight=1.0, required=True, description="Términos genéricos de contratación"),
+        ]
+
+        self.add_profile(FilterProfile(
+            "test_placsp",
+            "Perfil de prueba para capturar todo de PLACSP",
+            test_placsp_rules,
+            min_score=0.1
+        ))
+
     def add_profile(self, profile: FilterProfile):
         """Añade un nuevo perfil de filtros"""
         self.profiles[profile.name] = profile
@@ -251,12 +274,13 @@ class GrantFilter:
             
             for name, profile_dict in profiles_data.items():
                 # Convertir string a FilterType enum
+                # Convertir string a FilterType enum y crear objetos FilterRule
+                rules_objects = []
                 for rule in profile_dict['rules']:
                     rule['filter_type'] = FilterType(rule['filter_type'])
-                    rule_obj = FilterRule(**rule)
-                    rule_dict.clear()
-                    rule_dict.update(asdict(rule_obj))
+                    rules_objects.append(FilterRule(**rule))
                 
+                profile_dict['rules'] = rules_objects
                 profile = FilterProfile(**profile_dict)
                 self.profiles[name] = profile
             
@@ -443,11 +467,12 @@ class GrantFilter:
                 rule_result.update({'passed': passed, 'score': score, 'matches': matches})
             
             # Acumular scores
+            total_weight += rule.weight
+            
             if rule_result['passed']:
                 if rule.required:
                     required_rules_passed += 1
                 
-                total_weight += rule.weight
                 weighted_score_sum += rule_result['score'] * rule.weight
                 
                 # Guardar matches para referencia
