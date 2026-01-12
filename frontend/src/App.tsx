@@ -2,11 +2,12 @@ import { useState } from 'react'
 import './index.css'
 import LandingPage from './pages/LandingPage'
 import GrantsPage from './pages/GrantsPage'
+import OrganizationPage from './pages/OrganizationPage'
 import Analytics from './components/Analytics'
 import { Button } from './components/ui/button'
-import { Home } from 'lucide-react'
+import { Home, Building2 } from 'lucide-react'
 
-type Page = 'landing' | 'grants' | 'analytics'
+type Page = 'landing' | 'grants' | 'analytics' | 'organization'
 
 function App() {
   const [currentPage, setCurrentPage] = useState<Page>('landing')
@@ -46,11 +47,24 @@ function App() {
         >
           Analytics
         </Button>
+
+        <div className="h-6 w-px bg-slate-700 ml-2" />
+
+        <Button
+          variant={currentPage === 'organization' ? 'secondary' : 'ghost'}
+          onClick={() => setCurrentPage('organization')}
+          className={`gap-2 ${currentPage !== 'organization' ? 'text-white hover:bg-slate-800' : ''}`}
+        >
+          <Building2 className="h-4 w-4" />
+          Mi Organizacion
+        </Button>
       </div>
 
       {/* Conditional Page Rendering */}
       {currentPage === 'analytics' ? (
         <Analytics />
+      ) : currentPage === 'organization' ? (
+        <OrganizationPage />
       ) : (
         <GrantsPage />
       )}

@@ -82,6 +82,10 @@ The backend follows a layered architecture with clear separation of concerns:
   - Includes N8n analysis results (priority, strategic_value)
   - Supports nonprofit classification with confidence scores
   - **Google Sheets tracking**: `google_sheets_exported`, `google_sheets_exported_at`, `google_sheets_row_id`, `google_sheets_url`
+- `organization_profile.py` - **NEW** Organization profile for eligibility matching
+  - Stores organization data: name, CIF, type, sectors, regions, capabilities
+  - Used by AI agent to provide personalized eligibility analysis
+  - Method `to_n8n_payload()` serializes for AI context
 
 **`app/api/v1/`** - FastAPI route handlers
 - `grants.py` - CRUD operations for grants (list with filters, get by ID, delete, bulk operations)
@@ -99,6 +103,10 @@ The backend follows a layered architecture with clear separation of concerns:
 - `filters.py` - **Filter transparency endpoints** (expose BDNS/BOE keywords)
 - `analytics.py` - Dashboard metrics and statistics
 - `endpoints/exports.py` - Excel export functionality
+- `organization.py` - **NEW** Organization profile CRUD endpoints
+  - `GET /api/v1/organization` - Get current user's profile
+  - `POST /api/v1/organization` - Create/update profile
+  - `GET /api/v1/organization/options` - Get form options (sectors, regions, capabilities)
 
 **`app/services/`** - Business logic layer
 - `bdns_service.py` - Wraps BDNS API client, filters by nonprofit keywords, stores to DB
@@ -121,6 +129,12 @@ The backend follows a layered architecture with clear separation of concerns:
 
 **`src/pages/`** - Page components
 - `GrantsPage.tsx` - Main grants table and capture controls
+  - Integrates AgentSidebar for persistent AI chat
+  - Checks for organization profile on mount
+- `OrganizationPage.tsx` - **NEW** Organization profile form
+  - Complete form with sectors, regions, capabilities checkboxes
+  - Loads predefined options from backend
+  - Auto-saves to database
 
 **`src/components/`** - React components
 - `GrantsTable.tsx` - Data table with sorting, filtering, selection
@@ -129,11 +143,17 @@ The backend follows a layered architecture with clear separation of concerns:
 - `GrantDetailDrawer.tsx` - Slide-out panel with full grant details
 - `AdvancedFilterPanel.tsx` - Budget range, date range, region/sector filters
 - `CaptureConfigDialog.tsx` - Configure BDNS/BOE capture with **filter preview**
-- `FilterKeywordsManager.tsx` - **NEW** - Modal with 3 tabs to view/edit filter keywords
+- `FilterKeywordsManager.tsx` - Modal with 3 tabs to view/edit filter keywords
 - `Analytics.tsx` - Dashboard with charts and statistics
-- `ui/` - shadcn/ui components (Button, Dialog, Select, etc.)
+- `agent/AgentSidebar.tsx` - **NEW** Persistent AI analyst sidebar
+  - Opens from right side when grant selected
+  - Shows organization profile warning if not configured
+  - Contains GrantChat for interactive AI chat
+- `GrantChat.tsx` - Chat interface for AI analyst
+- `ui/` - shadcn/ui components (Button, Dialog, Select, Checkbox, Textarea, etc.)
 
 **`src/types.ts`** - TypeScript interfaces matching backend models
+- Added `OrganizationProfile`, `ProfileOption`, `ProfileOptions` interfaces
 
 ### Data Flow
 
@@ -255,16 +275,77 @@ PostgreSQL runs on **port 5433** (not default 5432) to avoid conflicts:
    - **Analysis callback**: N8n returns AI analysis (priority, strategic_value)
    - **Sheets callback**: N8n confirms successful Google Sheets export with URL and row ID
 
-### AI Analyst Chat
+### Organization Profile System (2026-01-12)
 
-**Interactive Chat System**:
-- **Frontend**: `GrantChat` component embedded in `GrantDetailDrawer`
+**Purpose**: Enable personalized eligibility analysis by storing organization data.
+
+**Database Model** (`organization_profile.py`):
+```python
+class OrganizationProfile(Base):
+    __tablename__ = "organization_profiles"
+    id = Column(UUID, primary_key=True)
+    user_id = Column(String, unique=True, index=True)  # Simple auth via X-User-ID header
+    name = Column(String, nullable=False)
+    cif = Column(String, nullable=True)
+    organization_type = Column(String)  # fundacion, asociacion, ong, cooperativa, empresa
+    sectors = Column(JSON)  # ["accion_social", "educacion", "tecnologia", ...]
+    regions = Column(JSON)  # ["ES30", "ES51", "nacional", ...]
+    annual_budget = Column(Float)
+    employee_count = Column(Integer)
+    founding_year = Column(Integer)
+    capabilities = Column(JSON)  # ["proyectos_europeos", "formacion", ...]
+    description = Column(Text)
+```
+
+**Predefined Options** (`/api/v1/organization/options`):
+- **Organization Types**: Fundacion, Asociacion, ONG, Cooperativa, Empresa/PYME
+- **16 Sectors**: Accion Social, Educacion, Medioambiente, Cultura, Salud, Cooperacion, etc.
+- **20 Regions**: All Spanish autonomous communities + "Nacional"
+- **12 Capabilities**: Proyectos europeos, Atencion menores/mayores, Formacion, etc.
+
+**Authentication**: Simple header-based (`X-User-ID: demo-user`)
+
+### AI Analyst Chat (Enhanced 2026-01-12)
+
+**Interactive Chat System with Organization Context**:
+- **Frontend**:
+  - `GrantChat` component for chat interface
+  - `AgentSidebar` - Persistent sidebar that opens when grant is selected
+  - Shows warning if organization profile not configured
 - **Backend**: Proxy endpoint `POST /api/v1/grants/{id}/chat`
+  - Accepts `user_id` query parameter to fetch organization profile
+  - Includes organization data in N8n payload for personalized analysis
 - **N8n Integration**:
   - Dedicated webhook: `N8N_CHAT_WEBHOOK_URL`
-  - Payload: `{ grant: {...}, chat: { message, history } }`
+  - **Enhanced Payload Structure**:
+    ```json
+    {
+      "grant": {
+        "id": "uuid",
+        "title": "Subvencion para...",
+        "budget_amount": 500000,
+        "sectors": ["educacion"],
+        "regions": ["ES30"],
+        "beneficiary_types": ["fundaciones"],
+        ...
+      },
+      "organization": {
+        "name": "Fundacion Esperanza Digital",
+        "type": "fundacion",
+        "sectors": ["accion_social", "educacion"],
+        "regions": ["ES30", "ES51"],
+        "capabilities": ["proyectos_europeos", "formacion"],
+        "annual_budget": 850000,
+        ...
+      },
+      "chat": {
+        "message": "Somos elegibles para esta convocatoria?",
+        "history": [...]
+      }
+    }
+    ```
   - Response: `{ output: "Markdown text..." }`
-- **Flow**: User message → Backend → N8n Webhook → AI Agent (with grant context) → N8n Response → Backend → Frontend UI
+- **Flow**: User message → Backend (fetch org profile) → N8n Webhook → AI Agent (with grant + org context) → Response → Frontend UI
 
 ## Important Patterns
 
@@ -345,7 +426,7 @@ Key variables (see `backend/.env.example`):
 - `CORS_ORIGINS` - Allowed frontend origins (comma-separated)
 - `LOG_LEVEL` - Logging verbosity (DEBUG, INFO, WARNING, ERROR)
 
-## Current Feature Status (2025-10-20)
+## Current Feature Status (2026-01-12)
 
 ### ✅ Fully Implemented
 
@@ -383,25 +464,94 @@ Key variables (see `backend/.env.example`):
    - Nonprofit keyword filtering
    - Relevance scoring (informational)
 
-8. **AI Analyst Chat (2025-11-26)**
+8. **AI Analyst Chat with Organization Context (2026-01-12)**
    - Interactive chat with AI agent about specific grants
-   - Context-aware responses (sends full grant data to N8n)
+   - **Organization profile integration** - Agent knows user's organization
+   - **Persistent AgentSidebar** - Opens automatically when grant selected
+   - Context-aware eligibility analysis (grant + organization matching)
    - Markdown support for rich text responses
-   - Ephemeral chat history (per session)
+   - Warning shown if organization profile not configured
+
+9. **Organization Profile System (2026-01-12)**
+   - Database model with sectors, regions, capabilities
+   - CRUD API endpoints with predefined options
+   - Form UI with checkboxes for multi-select fields
+   - Integrated with AI chat for personalized analysis
 
 ### 🔄 In Progress (see TODO.md)
 
-1. **Excel Export Enhancement**
-   - Professional formatting
-   - Calculated deadlines with Spanish holidays
+1. **N8n Agent Prompt Engineering**
+   - Optimize prompt for eligibility analysis
+   - Add match score calculation logic
+   - Implement document generation capabilities
 
-2. **Filter Keyword Editing**
-   - UI for modifying keywords
-   - Persistence layer
+2. **Eligibility Match Score Visualization**
+   - Calculate match percentage in N8n
+   - Display score in grants table
+   - Color-coded compatibility indicator
 
-3. **Auto-refresh Polling**
-   - Background grant updates
-   - Real-time status changes
+## N8n Chat Agent Configuration
+
+### Webhook Setup
+
+The AI chat requires a dedicated N8n webhook workflow:
+
+1. **Create Webhook Node**:
+   - Method: POST
+   - Path: `/grant-chat` (or custom)
+   - Response Mode: "Last Node" (wait for AI response)
+
+2. **Receive Payload**:
+   ```json
+   {
+     "grant": { ... },        // Full grant data
+     "organization": { ... }, // User's organization profile (or null)
+     "chat": {
+       "message": "User question",
+       "history": [{"role": "user/assistant", "content": "..."}]
+     }
+   }
+   ```
+
+3. **AI Agent Node** (recommended):
+   - Use Claude or GPT-4 with system prompt
+   - Pass grant + organization as context
+   - Return structured response
+
+4. **Example System Prompt for Eligibility Analysis**:
+   ```
+   Eres un experto analista de subvenciones espanol. Tu trabajo es ayudar a organizaciones
+   sin animo de lucro a determinar su elegibilidad para convocatorias de subvenciones.
+
+   CONTEXTO DE LA CONVOCATORIA:
+   {{$json.grant}}
+
+   PERFIL DE LA ORGANIZACION:
+   {{$json.organization}}
+
+   INSTRUCCIONES:
+   1. Analiza si la organizacion cumple con los requisitos de la convocatoria
+   2. Identifica coincidencias en: sectores, regiones, tipo de beneficiario, presupuesto
+   3. Senala requisitos que la organizacion NO cumple
+   4. Da una puntuacion de compatibilidad (0-100%)
+   5. Recomienda siguientes pasos si es elegible
+
+   Responde de forma clara y estructurada en espanol.
+   ```
+
+5. **Response Format**:
+   ```json
+   {
+     "output": "# Analisis de Elegibilidad\n\n## Compatibilidad: 85%\n\n..."
+   }
+   ```
+
+### Environment Variable
+
+Set in backend `.env`:
+```
+N8N_CHAT_WEBHOOK_URL=https://your-n8n-instance.app.n8n.cloud/webhook/grant-chat
+```
 
 ## Next Priority Features
 

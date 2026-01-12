@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List
 from datetime import datetime
 
 from app.database import get_db
@@ -120,10 +120,11 @@ async def list_grants(
     offset: int = Query(0, ge=0, description="Offset para paginación"),
     sort_by: str = Query("application_end_date", description="Campo para ordenar"),
     order: str = Query("asc", description="Orden: asc o desc"),
+
     db: Session = Depends(get_db)
 ):
     """
-    Lista grants con filtros avanzados
+    Lista grants con filtros avanzados.
     """
     from datetime import datetime
 
@@ -191,7 +192,7 @@ async def list_grants(
 
     # Paginación
     grants = query.offset(offset).limit(limit).all()
-    
+
     return GrantsListResponse(
         total=total,
         grants=[GrantListItem.model_validate(g) for g in grants]
@@ -261,25 +262,34 @@ class ChatRequest(BaseModel):
     history: List[Dict[str, str]] = []
 
 
+def get_user_id(x_user_id: Optional[str] = Query(None, alias="X-User-ID")) -> str:
+    """Get user ID from header for organization context"""
+    from fastapi import Header
+    return x_user_id or "anonymous"
+
+
 @router.post("/{grant_id}/chat")
 async def chat_with_grant(
     grant_id: str,
     request: ChatRequest,
+    x_user_id: Optional[str] = Query(None, description="User ID for organization context"),
     db: Session = Depends(get_db)
 ):
     """
-    Envía un mensaje al analista AI sobre un grant específico
+    Envía un mensaje al analista AI sobre un grant específico.
+    Si se proporciona X-User-ID, incluye el perfil de la organización en el contexto.
     """
     from app.services.n8n_service import N8nService
-    
+
     service = N8nService(db)
     result = await service.send_chat_message(
         grant_id=grant_id,
         message=request.message,
-        history=request.history
+        history=request.history,
+        user_id=x_user_id
     )
-    
+
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result.get("error", "Error en el chat AI"))
-        
+
     return result

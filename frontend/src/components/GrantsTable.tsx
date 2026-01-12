@@ -18,6 +18,7 @@ import {
   Clock,
   Minus,
   Heart,
+  FileText,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -37,6 +38,7 @@ interface GrantsTableProps {
   onToggleSelect: (id: string) => void
   onSelectAll: () => void
   onGrantClick: (grant: Grant) => void
+  onViewDetails?: (grant: Grant) => void
   onSendIndividual?: (grantId: string) => void
   onDeleteIndividual?: (grantId: string) => void
   loading?: boolean
@@ -50,6 +52,7 @@ export function GrantsTable({
   onToggleSelect,
   onSelectAll,
   onGrantClick,
+  onViewDetails,
   onSendIndividual,
   onDeleteIndividual,
   loading = false,
@@ -105,8 +108,8 @@ export function GrantsTable({
         const bValue = b[sortField]
 
         // Handle null values
-        if (aValue === null) return 1
-        if (bValue === null) return -1
+        if (aValue === null || aValue === undefined) return 1
+        if (bValue === null || bValue === undefined) return -1
 
         // Compare values
         let comparison = 0
@@ -595,6 +598,17 @@ export function GrantsTable({
                     <td className="p-3">{getExportStatus(grant)}</td>
                     <td className="p-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex gap-1">
+                        {onViewDetails && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 hover:bg-blue-100 dark:hover:bg-blue-900"
+                            onClick={() => onViewDetails(grant)}
+                            title="Ver detalles completos"
+                          >
+                            <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          </Button>
+                        )}
                         {!grant.sent_to_n8n && onSendIndividual && (
                           <Button
                             variant="ghost"

@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
 
-from app.models import Grant
+from app.models import Grant, OrganizationProfile
 from app.config import get_settings
 
 settings = get_settings()
@@ -188,29 +188,46 @@ class N8nService:
                 "error": str(e),
                 "webhook_url": self.webhook_url
             }
-    async def send_chat_message(self, grant_id: str, message: str, history: list) -> Dict[str, Any]:
+    async def send_chat_message(
+        self,
+        grant_id: str,
+        message: str,
+        history: list,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Envía un mensaje de chat a N8n junto con el contexto del grant
-        
+        y el perfil de la organización del usuario (si existe)
+
         Args:
             grant_id: ID del grant
             message: Mensaje del usuario
             history: Historial de chat previo
-            
+            user_id: ID del usuario para obtener su perfil de organización
+
         Returns:
             Respuesta del agente AI
         """
         grant = self.db.query(Grant).filter(Grant.id == grant_id).first()
-        
+
         if not grant:
             return {
                 "success": False,
                 "error": f"Grant {grant_id} not found"
             }
-            
+
+        # Get organization profile if user_id provided
+        organization_payload = None
+        if user_id:
+            org_profile = self.db.query(OrganizationProfile).filter(
+                OrganizationProfile.user_id == user_id
+            ).first()
+            if org_profile:
+                organization_payload = org_profile.to_n8n_payload()
+
         chat_webhook_url = settings.n8n_chat_webhook_url
         print(f"DEBUG: Chat Webhook URL: '{chat_webhook_url}'")
-        
+
         if not chat_webhook_url:
             print("DEBUG: N8N_CHAT_WEBHOOK_URL is empty or not set")
             # Fallback for prototype if not set
@@ -219,15 +236,16 @@ class N8nService:
                 "error": "N8N_CHAT_WEBHOOK_URL not configured"
             }
 
-        # Construct payload with context + chat
+        # Construct payload with context + chat + organization
         payload = {
             "grant": grant.to_n8n_payload(),
+            "organization": organization_payload,  # Will be null if no profile
             "chat": {
                 "message": message,
                 "history": history
             }
         }
-        print(f"DEBUG: Sending payload to N8n: {payload.keys()}")
+        print(f"DEBUG: Sending payload to N8n: {payload.keys()}, org: {organization_payload is not None}")
         
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:

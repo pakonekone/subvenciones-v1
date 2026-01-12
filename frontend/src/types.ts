@@ -1,3 +1,17 @@
+// Match Score for organization-grant compatibility
+export interface MatchScoreBreakdown {
+  beneficiary_type: number
+  sectors: number
+  regions: number
+  budget: number
+}
+
+export interface MatchScore {
+  total_score: number
+  breakdown: MatchScoreBreakdown
+  recommendation: "APLICAR" | "REVISAR" | "NO RECOMENDADO"
+}
+
 export interface Grant {
   id: string
   source: string
@@ -27,9 +41,41 @@ export interface Grant {
   contract_type?: string | null
   cpv_codes?: string[] | null
   pdf_url?: string | null
+  // Match score (calculated dynamically based on organization profile)
+  match_score?: MatchScore | null
 }
 
 export interface GrantsResponse {
   total: number
   grants: Grant[]
+}
+
+// Organization Profile types
+export interface OrganizationProfile {
+  id: string
+  user_id: string
+  name: string
+  cif: string | null
+  organization_type: string | null
+  sectors: string[]
+  regions: string[]
+  annual_budget: number | null
+  employee_count: number | null
+  founding_year: number | null
+  capabilities: string[]
+  description: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ProfileOption {
+  value: string
+  label: string
+}
+
+export interface ProfileOptions {
+  organization_types: ProfileOption[]
+  sectors: ProfileOption[]
+  regions: ProfileOption[]
+  capabilities: ProfileOption[]
 }
