@@ -19,6 +19,9 @@ python-dotenv==1.0.1
 httpx==0.26.0
 requests==2.31.0
 
+# Email service
+resend==2.0.0
+
 # Excel generation
 openpyxl==3.1.2
 pandas==2.2.3
