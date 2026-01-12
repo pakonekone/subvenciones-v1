@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import { FavoriteButton } from "@/components/FavoriteButton"
 import {
   ArrowUpDown,
   ArrowUp,
@@ -16,6 +17,7 @@ import {
   Sheet,
   Clock,
   Minus,
+  Heart,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -38,6 +40,8 @@ interface GrantsTableProps {
   onSendIndividual?: (grantId: string) => void
   onDeleteIndividual?: (grantId: string) => void
   loading?: boolean
+  favoriteIds?: Set<string>
+  onToggleFavorite?: (grantId: string) => Promise<void>
 }
 
 export function GrantsTable({
@@ -49,6 +53,8 @@ export function GrantsTable({
   onSendIndividual,
   onDeleteIndividual,
   loading = false,
+  favoriteIds = new Set(),
+  onToggleFavorite,
 }: GrantsTableProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [sortField, setSortField] = useState<SortField | null>(null)
@@ -183,14 +189,34 @@ export function GrantsTable({
   }
 
   const getConfidenceBadge = (confidence: number | null) => {
-    if (!confidence) return null
+    if (!confidence) return <span className="text-muted-foreground text-sm">-</span>
     const percentage = Math.round(confidence * 100)
-    let variant: "default" | "secondary" | "destructive" = "default"
-    if (percentage >= 70) variant = "default"
-    else if (percentage >= 40) variant = "secondary"
-    else variant = "destructive"
 
-    return <Badge variant={variant}>{percentage}%</Badge>
+    // High confidence (70%+) - Green with heart icon
+    if (percentage >= 70) {
+      return (
+        <div className="inline-flex items-center gap-1.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2.5 py-1 rounded-full text-xs font-semibold">
+          <span className="text-green-500">♥</span>
+          {percentage}%
+        </div>
+      )
+    }
+
+    // Medium confidence (40-69%) - Amber
+    if (percentage >= 40) {
+      return (
+        <div className="inline-flex items-center gap-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2.5 py-1 rounded-full text-xs font-semibold">
+          {percentage}%
+        </div>
+      )
+    }
+
+    // Low confidence (<40%) - Gray
+    return (
+      <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 px-2.5 py-1 rounded-full text-xs font-medium">
+        {percentage}%
+      </div>
+    )
   }
 
   const getExportStatus = (grant: Grant) => {
@@ -289,8 +315,17 @@ export function GrantsTable({
           </div>
           <div className="overflow-x-auto rounded-md border">
             <div className="space-y-3 p-4">
+              {/* Loading indicator */}
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="relative">
+                  <div className="h-12 w-12 rounded-full border-4 border-muted animate-pulse"></div>
+                  <div className="absolute inset-0 h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+                </div>
+                <p className="mt-4 text-sm text-muted-foreground">Cargando subvenciones...</p>
+              </div>
+              {/* Skeleton rows */}
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-4">
+                <div key={i} className="flex items-center gap-4 opacity-50">
                   <div className="h-4 w-4 bg-muted animate-pulse rounded"></div>
                   <div className="flex-1 space-y-2">
                     <div className="h-4 w-3/4 bg-muted animate-pulse rounded"></div>
@@ -351,6 +386,9 @@ export function GrantsTable({
                     onChange={onSelectAll}
                     className="cursor-pointer"
                   />
+                </th>
+                <th className="p-3 text-center w-12">
+                  <Heart className="h-4 w-4 mx-auto text-muted-foreground" />
                 </th>
                 <th className="p-3 text-left">
                   <Button
@@ -431,8 +469,9 @@ export function GrantsTable({
                     size="sm"
                     className="h-auto p-0 font-semibold hover:bg-transparent"
                     onClick={() => handleSort("nonprofit_confidence")}
+                    title="Indica qué tan relevante es esta convocatoria para entidades sin ánimo de lucro"
                   >
-                    Confianza
+                    Nonprofit
                     <SortIcon field="nonprofit_confidence" />
                   </Button>
                 </th>
@@ -459,10 +498,39 @@ export function GrantsTable({
             <tbody>
               {processedGrants.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-12 text-center text-muted-foreground">
-                    {searchQuery
-                      ? "No se encontraron grants con esos criterios"
-                      : "No hay grants disponibles"}
+                  <td colSpan={12} className="p-0">
+                    <div className="flex flex-col items-center justify-center py-16 px-4">
+                      {searchQuery ? (
+                        <>
+                          <div className="rounded-full bg-muted p-4 mb-4">
+                            <Search className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <h3 className="text-lg font-semibold mb-2">Sin resultados</h3>
+                          <p className="text-muted-foreground text-center max-w-md mb-4">
+                            No se encontraron grants que coincidan con "{searchQuery}".
+                            Prueba con otros términos de búsqueda.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSearchQuery("")}
+                          >
+                            Limpiar búsqueda
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="rounded-full bg-primary/10 p-4 mb-4">
+                            <Search className="h-8 w-8 text-primary" />
+                          </div>
+                          <h3 className="text-lg font-semibold mb-2">No hay subvenciones</h3>
+                          <p className="text-muted-foreground text-center max-w-md mb-4">
+                            Aún no has capturado ninguna subvención.
+                            Usa el botón "Importar Datos" para comenzar a capturar desde BDNS, BOE o PLACSP.
+                          </p>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -479,6 +547,15 @@ export function GrantsTable({
                         onChange={() => onToggleSelect(grant.id)}
                         className="cursor-pointer"
                       />
+                    </td>
+                    <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      {onToggleFavorite && (
+                        <FavoriteButton
+                          isFavorite={favoriteIds.has(grant.id)}
+                          onToggle={() => onToggleFavorite(grant.id)}
+                          size="sm"
+                        />
+                      )}
                     </td>
                     <td className="p-3">
                       <div

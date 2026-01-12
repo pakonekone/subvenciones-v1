@@ -24,15 +24,18 @@ import {
   AlertCircle,
 } from "lucide-react"
 import { GrantChat } from "@/components/GrantChat"
+import { FavoriteButton } from "@/components/FavoriteButton"
 import { cn } from "@/lib/utils"
 
 interface GrantDetailDrawerProps {
   grant: Grant | null
   open: boolean
   onClose: () => void
+  isFavorite?: boolean
+  onToggleFavorite?: () => Promise<void>
 }
 
-export function GrantDetailDrawer({ grant, open, onClose }: GrantDetailDrawerProps) {
+export function GrantDetailDrawer({ grant, open, onClose, isFavorite = false, onToggleFavorite }: GrantDetailDrawerProps) {
   if (!grant) return null
 
   const formatDate = (dateStr: string | null) => {
@@ -92,6 +95,15 @@ export function GrantDetailDrawer({ grant, open, onClose }: GrantDetailDrawerPro
             <SheetTitle className="text-2xl leading-tight pr-8">
               {grant.title}
             </SheetTitle>
+            {onToggleFavorite && (
+              <FavoriteButton
+                isFavorite={isFavorite}
+                onToggle={onToggleFavorite}
+                size="lg"
+                showLabel
+                className="shrink-0"
+              />
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2">

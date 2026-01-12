@@ -15,16 +15,18 @@ import { ActiveFilters } from "@/components/ActiveFilters"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Database, Download } from "lucide-react"
+import { RefreshCw, Database, Download, Heart } from "lucide-react"
 import { getApiUrl } from "@/config/api"
 import { ControlBar } from "@/components/ControlBar"
 import { FloatingActionBar } from "@/components/FloatingActionBar"
+import { AlertsPanel } from "@/components/AlertsPanel"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useFavorites } from "@/hooks/useFavorites"
 
 type ViewMode = "table" | "cards"
 
@@ -41,6 +43,10 @@ export default function GrantsPage() {
   const [captureDialogOpen, setCaptureDialogOpen] = useState(false)
   const [captureSource, setCaptureSource] = useState<"BDNS" | "BOE" | "PLACSP">("BDNS")
   const [showN8nProcessingBanner, setShowN8nProcessingBanner] = useState(false)
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false)
+
+  // Favorites hook
+  const { favoriteIds, isFavorite, toggleFavorite, favoritesCount } = useFavorites()
 
   // UI State
   const [activeTab, setActiveTab] = useState("all")
@@ -474,8 +480,19 @@ export default function GrantsPage() {
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="secondary" className="text-sm h-9 px-3">
-            {grants.length} resultados
+            {showOnlyFavorites ? `${favoritesCount} favoritos` : `${grants.length} resultados`}
           </Badge>
+
+          <Button
+            onClick={() => setShowOnlyFavorites(!showOnlyFavorites)}
+            variant={showOnlyFavorites ? "default" : "outline"}
+            className={`gap-2 ${showOnlyFavorites ? 'bg-red-500 hover:bg-red-600' : ''}`}
+          >
+            <Heart className={`h-4 w-4 ${showOnlyFavorites ? 'fill-current' : ''}`} />
+            {favoritesCount > 0 && <span>{favoritesCount}</span>}
+          </Button>
+
+          <AlertsPanel />
 
           <Button
             onClick={loadGrants}
@@ -574,7 +591,7 @@ export default function GrantsPage() {
       {/* Grants Display */}
       {viewMode === "table" ? (
         <GrantsTable
-          grants={grants}
+          grants={showOnlyFavorites ? grants.filter(g => favoriteIds.has(g.id)) : grants}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
           onSelectAll={handleSelectAll}
@@ -582,6 +599,8 @@ export default function GrantsPage() {
           onSendIndividual={handleSendIndividual}
           onDeleteIndividual={handleDeleteIndividual}
           loading={loading}
+          favoriteIds={favoriteIds}
+          onToggleFavorite={toggleFavorite}
         />
       ) : (
         <ConvocatoriaGrid
@@ -601,6 +620,8 @@ export default function GrantsPage() {
           setDrawerOpen(false)
           setSelectedGrant(null)
         }}
+        isFavorite={selectedGrant ? isFavorite(selectedGrant.id) : false}
+        onToggleFavorite={selectedGrant ? () => toggleFavorite(selectedGrant.id) : undefined}
       />
 
       {/* Capture Config Dialog */}

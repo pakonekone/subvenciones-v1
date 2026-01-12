@@ -1,56 +1,51 @@
 import { useState } from 'react'
 import './index.css'
+import LandingPage from './pages/LandingPage'
 import GrantsPage from './pages/GrantsPage'
 import Analytics from './components/Analytics'
+import { Button } from './components/ui/button'
+import { Home } from 'lucide-react'
 
-type Page = 'grants' | 'analytics'
+type Page = 'landing' | 'grants' | 'analytics'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('grants')
+  const [currentPage, setCurrentPage] = useState<Page>('landing')
 
+  // Show landing page without navigation
+  if (currentPage === 'landing') {
+    return <LandingPage onEnterApp={() => setCurrentPage('grants')} />
+  }
 
   return (
     <>
       {/* Navigation */}
-      <div style={{
-        background: '#2c3e50',
-        padding: '16px 32px',
-        display: 'flex',
-        gap: '16px',
-        borderBottom: '3px solid #3498db'
-      }}>
-        <button
+      <div className="bg-slate-900 px-8 py-4 flex items-center gap-4 border-b-4 border-primary">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setCurrentPage('landing')}
+          className="text-white hover:bg-slate-800"
+          title="Volver al inicio"
+        >
+          <Home className="h-5 w-5" />
+        </Button>
+
+        <div className="h-6 w-px bg-slate-700" />
+
+        <Button
+          variant={currentPage === 'grants' ? 'secondary' : 'ghost'}
           onClick={() => setCurrentPage('grants')}
-          style={{
-            background: currentPage === 'grants' ? '#3498db' : 'transparent',
-            color: 'white',
-            border: 'none',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: 600,
-            transition: 'background 0.2s'
-          }}
+          className={currentPage !== 'grants' ? 'text-white hover:bg-slate-800' : ''}
         >
-          📋 Grants
-        </button>
-        <button
+          Subvenciones
+        </Button>
+        <Button
+          variant={currentPage === 'analytics' ? 'secondary' : 'ghost'}
           onClick={() => setCurrentPage('analytics')}
-          style={{
-            background: currentPage === 'analytics' ? '#3498db' : 'transparent',
-            color: 'white',
-            border: 'none',
-            padding: '12px 24px',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: 600,
-            transition: 'background 0.2s'
-          }}
+          className={currentPage !== 'analytics' ? 'text-white hover:bg-slate-800' : ''}
         >
-          📊 Analytics
-        </button>
+          Analytics
+        </Button>
       </div>
 
       {/* Conditional Page Rendering */}

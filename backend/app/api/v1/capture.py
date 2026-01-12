@@ -5,9 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from typing import Optional
+from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.services import BDNSService
+from app.services.alert_service import check_alerts_for_new_grants
+from app.models import Grant
 
 router = APIRouter()
 
@@ -18,6 +21,7 @@ class CaptureRequest(BaseModel):
     date_from: Optional[str] = Field(None, description="Fecha desde (YYYY-MM-DD)")
     date_to: Optional[str] = Field(None, description="Fecha hasta (YYYY-MM-DD)")
     max_results: int = Field(default=50, ge=1, le=100, description="Máximo número de resultados")
+    check_alerts: bool = Field(default=True, description="Verificar alertas y enviar notificaciones")
 
 
 class CaptureResponse(BaseModel):
@@ -68,6 +72,21 @@ async def capture_bdns_grants(
                 date_to=today,
                 max_results=request.max_results
             )
+
+        # Check alerts for new grants if enabled and there are new grants
+        alerts_result = None
+        if request.check_alerts and stats.get('total_new', 0) > 0:
+            # Get grants created in the last 2 minutes (to catch the ones just captured)
+            recent_cutoff = datetime.utcnow() - timedelta(minutes=2)
+            new_grants = db.query(Grant).filter(
+                Grant.captured_at >= recent_cutoff,
+                Grant.source == "BDNS"
+            ).all()
+
+            if new_grants:
+                new_grant_ids = [g.id for g in new_grants]
+                alerts_result = check_alerts_for_new_grants(db, new_grant_ids)
+                stats['alerts_checked'] = alerts_result
 
         return CaptureResponse(
             success=True,
