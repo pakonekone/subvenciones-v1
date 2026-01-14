@@ -54,7 +54,7 @@ class BDNSDocumentService:
         combined_texts = []
 
         for doc in grant.bdns_documents:
-            doc_result = self._process_single_document(doc)
+            doc_result = self._process_single_document(doc, grant.bdns_code)
             results.append(doc_result)
 
             if doc_result["success"] and doc_result.get("text"):
@@ -87,12 +87,13 @@ class BDNSDocumentService:
             "has_content": bool(grant.bdns_documents_combined_text)
         }
 
-    def _process_single_document(self, doc: Dict[str, Any]) -> Dict[str, Any]:
+    def _process_single_document(self, doc: Dict[str, Any], bdns_code: Optional[str] = None) -> Dict[str, Any]:
         """
         Process a single BDNS document PDF.
 
         Args:
             doc: Document metadata dict with id, nombre, url, etc.
+            bdns_code: The BDNS code of the grant (used to construct correct URL)
 
         Returns:
             Processing result with success status and extracted text
@@ -106,10 +107,21 @@ class BDNSDocumentService:
         }
 
         try:
-            url = doc.get("url")
-            if not url:
-                result["error"] = "No URL provided"
+            doc_id = doc.get("id")
+            if not doc_id:
+                result["error"] = "No document ID provided"
                 return result
+
+            # Always construct the correct URL format using bdns_code
+            # Old grants may have incorrect URLs stored, so we rebuild it
+            if bdns_code:
+                url = f"https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/{bdns_code}/document/{doc_id}"
+            else:
+                # Fallback to stored URL if no bdns_code
+                url = doc.get("url")
+                if not url:
+                    result["error"] = "No URL or BDNS code available"
+                    return result
 
             logger.info(f"Processing document: {doc.get('nombre')} from {url}")
 
