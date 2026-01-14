@@ -86,6 +86,12 @@ class Grant(Base):
     # BDNS Documents (JSON array of attached documents)
     bdns_documents = Column(JSON)  # Array of {id, nombre, url, descripcion}
 
+    # BDNS Document Processing (on-demand extraction)
+    bdns_documents_processed = Column(Boolean, default=False, index=True)
+    bdns_documents_processed_at = Column(DateTime, nullable=True)
+    bdns_documents_content = Column(JSON)  # [{doc_id, filename, text, success, error}]
+    bdns_documents_combined_text = Column(Text)  # Combined text for chatbot context
+
     # Metadata
     bdns_last_updated = Column(DateTime)  # Última actualización BDNS
     enriched = Column(Boolean, default=False)  # Si tiene datos completos BDNS
@@ -120,6 +126,8 @@ class Grant(Base):
             "is_open": self.is_open,
             "bdns_code": self.bdns_code,
             "bdns_documents": self.bdns_documents,
+            "bdns_documents_processed": self.bdns_documents_processed,
+            "bdns_documents_processed_at": self.bdns_documents_processed_at.isoformat() if self.bdns_documents_processed_at else None,
             "regulatory_base_url": self.regulatory_base_url,
             "electronic_office": self.electronic_office,
             "sent_to_n8n": self.sent_to_n8n,
@@ -208,6 +216,14 @@ Los datos son estructurados y se actualizan automáticamente desde el sistema of
 Para más información:
 https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/{self.bdns_code or ''}
 """
+            # Append extracted document content if available
+            if self.bdns_documents_combined_text:
+                pdf_content_text += f"""
+
+CONTENIDO DE DOCUMENTOS ADJUNTOS
+================================
+{self.bdns_documents_combined_text[:30000]}
+"""
         else:
             # For BOE, use existing pdf_content_text or create fallback
             if self.pdf_content_text and len(self.pdf_content_text.strip()) > 50:
@@ -265,7 +281,9 @@ consulte directamente el documento oficial en el BOE mediante el enlace PDF prop
                 'regulatory_base_url': self.regulatory_base_url,
                 'electronic_office': self.electronic_office,
                 'state_aid_number': self.state_aid_number,
-                'state_aid_url': self.state_aid_url
+                'state_aid_url': self.state_aid_url,
+                'bdns_documents_processed': self.bdns_documents_processed,
+                'bdns_documents_count': len(self.bdns_documents) if self.bdns_documents else 0
             }
         else:
             # For BOE, basic metadata
@@ -337,4 +355,11 @@ consulte directamente el documento oficial en el BOE mediante el enlace PDF prop
             "state_aid_url": self.state_aid_url,
             "relevance_score": self.relevance_score,
             "enriched": self.enriched,
+
+            # Document content for chatbot context
+            "document_content": {
+                "combined_text": self.bdns_documents_combined_text or "",
+                "documents_processed": self.bdns_documents_processed or False,
+                "document_count": len(self.bdns_documents) if self.bdns_documents else 0
+            },
         }

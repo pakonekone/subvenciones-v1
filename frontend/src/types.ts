@@ -12,6 +12,23 @@ export interface MatchScore {
   recommendation: "APLICAR" | "REVISAR" | "NO RECOMENDADO"
 }
 
+// BDNS Document types
+export interface BDNSDocument {
+  id: number
+  nombre: string
+  url: string
+  descripcion: string | null
+  size: number | null
+}
+
+export interface BDNSDocumentContent {
+  doc_id: number
+  filename: string
+  success: boolean
+  text: string | null
+  error: string | null
+}
+
 export interface Grant {
   id: string
   source: string
@@ -41,6 +58,10 @@ export interface Grant {
   contract_type?: string | null
   cpv_codes?: string[] | null
   pdf_url?: string | null
+  // BDNS Documents
+  bdns_documents?: BDNSDocument[] | null
+  bdns_documents_processed?: boolean
+  bdns_documents_processed_at?: string | null
   // Match score (calculated dynamically based on organization profile)
   match_score?: MatchScore | null
 }

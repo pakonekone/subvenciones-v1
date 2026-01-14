@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from 're
 import './index.css'
 import LandingPage from './pages/LandingPage'
 import GrantsPage from './pages/GrantsPage'
+import GrantDetailPage from './pages/GrantDetailPage'
 import OrganizationPage from './pages/OrganizationPage'
 import Analytics from './components/Analytics'
 import { Button } from './components/ui/button'
@@ -33,8 +34,8 @@ function Navigation() {
 
       <Link to="/grants">
         <Button
-          variant={currentPath === '/grants' ? 'secondary' : 'ghost'}
-          className={currentPath !== '/grants' ? 'text-white hover:bg-slate-800' : ''}
+          variant={currentPath.startsWith('/grants') ? 'secondary' : 'ghost'}
+          className={!currentPath.startsWith('/grants') ? 'text-white hover:bg-slate-800' : ''}
         >
           Subvenciones
         </Button>
@@ -75,6 +76,7 @@ function AppContent() {
       <Routes>
         <Route path="/" element={<LandingWrapper />} />
         <Route path="/grants" element={<GrantsPage />} />
+        <Route path="/grants/:id" element={<GrantDetailPage />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/organization" element={<OrganizationPage />} />
       </Routes>

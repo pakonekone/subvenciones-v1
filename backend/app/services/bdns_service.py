@@ -312,7 +312,7 @@ class BDNSService:
                 doc_info = {
                     'id': doc.id,
                     'nombre': doc.nombreFic,
-                    'url': f"https://www.infosubvenciones.es/bdnstrans/api/documento/{doc.id}",
+                    'url': f"https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/{detail.codigoBDNS}/document/{doc.id}",
                     'descripcion': doc.descripcion if doc.descripcion else None,
                     'size': doc.long if hasattr(doc, 'long') else None
                 }
@@ -453,7 +453,7 @@ class BDNSService:
                 doc_info = {
                     'id': doc.id,
                     'nombre': doc.nombreFic,
-                    'url': f"https://www.infosubvenciones.es/bdnstrans/api/documento/{doc.id}",
+                    'url': f"https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/{detail.codigoBDNS}/document/{doc.id}",
                     'descripcion': doc.descripcion if doc.descripcion else None,
                     'size': doc.long if hasattr(doc, 'long') else None
                 }

@@ -14,6 +14,15 @@ from app.models import Grant
 router = APIRouter()
 
 
+class BDNSDocumentItem(BaseModel):
+    """BDNS Document metadata"""
+    id: int
+    nombre: str
+    url: str
+    descripcion: Optional[str] = None
+    size: Optional[int] = None
+
+
 class GrantListItem(BaseModel):
     """Item de grant para listado"""
     id: str
@@ -42,6 +51,9 @@ class GrantListItem(BaseModel):
     contract_type: Optional[str] = None
     cpv_codes: Optional[List[str]] = None
     pdf_url: Optional[str] = None
+    # BDNS Documents
+    bdns_documents: Optional[List[BDNSDocumentItem]] = None
+    bdns_documents_processed: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -80,6 +92,10 @@ class GrantDetail(BaseModel):
     contract_type: Optional[str] = None
     cpv_codes: Optional[List[str]] = None
     pdf_url: Optional[str] = None
+    # BDNS Documents
+    bdns_documents: Optional[List[BDNSDocumentItem]] = None
+    bdns_documents_processed: Optional[bool] = False
+    bdns_documents_processed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -291,5 +307,51 @@ async def chat_with_grant(
 
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result.get("error", "Error en el chat AI"))
+
+    return result
+
+
+# ===== BDNS Document Endpoints =====
+
+@router.get("/{grant_id}/documents")
+async def get_grant_documents(
+    grant_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Get BDNS documents metadata and processing status for a grant.
+    """
+    grant = db.query(Grant).filter(Grant.id == grant_id).first()
+    if not grant:
+        raise HTTPException(status_code=404, detail=f"Grant {grant_id} not found")
+
+    return {
+        "grant_id": grant_id,
+        "documents": grant.bdns_documents or [],
+        "processed": grant.bdns_documents_processed or False,
+        "processed_at": grant.bdns_documents_processed_at.isoformat() if grant.bdns_documents_processed_at else None,
+        "content": grant.bdns_documents_content
+    }
+
+
+@router.post("/{grant_id}/documents/process")
+async def process_grant_documents(
+    grant_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Trigger PDF processing for a grant's BDNS documents.
+    Downloads and extracts text from all attached PDFs.
+    """
+    from app.services.bdns_document_service import BDNSDocumentService
+
+    service = BDNSDocumentService(db)
+    result = service.process_grant_documents(grant_id)
+
+    if not result.get("success"):
+        raise HTTPException(
+            status_code=400 if result.get("error") == "Grant not found" else 500,
+            detail=result.get("error", "Error processing documents")
+        )
 
     return result

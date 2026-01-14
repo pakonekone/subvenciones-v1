@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import { Grant, GrantsResponse } from "@/types"
 import { QuickFilter } from "@/components/QuickFilters"
 import {
@@ -20,7 +21,6 @@ import { getApiUrl } from "@/config/api"
 import { ControlBar } from "@/components/ControlBar"
 import { FloatingActionBar } from "@/components/FloatingActionBar"
 import { AlertsPanel } from "@/components/AlertsPanel"
-import { AgentSidebar } from "@/components/agent/AgentSidebar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +32,7 @@ import { useFavorites } from "@/hooks/useFavorites"
 type ViewMode = "table" | "cards"
 
 export default function GrantsPage() {
+  const navigate = useNavigate()
   const [viewMode, setViewMode] = useState<ViewMode>("table")
   const [grants, setGrants] = useState<Grant[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,30 +46,9 @@ export default function GrantsPage() {
   const [captureSource, setCaptureSource] = useState<"BDNS" | "BOE" | "PLACSP">("BDNS")
   const [showN8nProcessingBanner, setShowN8nProcessingBanner] = useState(false)
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false)
-  const [agentSidebarOpen, setAgentSidebarOpen] = useState(false)
-  const [agentSelectedGrant, setAgentSelectedGrant] = useState<Grant | null>(null)
-  const [hasOrganizationProfile, setHasOrganizationProfile] = useState(false)
 
   // Favorites hook
   const { favoriteIds, isFavorite, toggleFavorite, favoritesCount } = useFavorites()
-
-  // Check for organization profile on mount
-  useEffect(() => {
-    const checkProfile = async () => {
-      try {
-        const res = await fetch(getApiUrl("/api/v1/organization"), {
-          headers: { "X-User-ID": "demo-user" },
-        })
-        if (res.ok) {
-          const profile = await res.json()
-          setHasOrganizationProfile(profile !== null)
-        }
-      } catch {
-        // Ignore errors
-      }
-    }
-    checkProfile()
-  }, [])
 
   // UI State
   const [activeTab, setActiveTab] = useState("all")
@@ -341,20 +321,14 @@ export default function GrantsPage() {
   }
 
   const handleGrantClick = (grant: Grant) => {
-    // Only open the Agent Sidebar - it has the grant summary and chat
-    // Close drawer if it was open to avoid UI conflict
-    setDrawerOpen(false)
-    setSelectedGrant(grant)
-    setAgentSelectedGrant(grant)
-    setAgentSidebarOpen(true)
+    // Navigate to grant detail page
+    navigate(`/grants/${grant.id}`)
   }
 
   const handleViewDetails = (grant: Grant) => {
-    // Open drawer without opening agent sidebar
+    // Open drawer for quick view (useful in card view)
     setSelectedGrant(grant)
     setDrawerOpen(true)
-    // Close agent sidebar to avoid conflict
-    setAgentSidebarOpen(false)
   }
 
   const handleSendIndividual = async (grantId: string) => {
@@ -684,13 +658,6 @@ export default function GrantsPage() {
         sending={sending}
       />
 
-      {/* Agent Sidebar */}
-      <AgentSidebar
-        selectedGrant={agentSelectedGrant}
-        isOpen={agentSidebarOpen}
-        onToggle={() => setAgentSidebarOpen(!agentSidebarOpen)}
-        hasOrganizationProfile={hasOrganizationProfile}
-      />
-    </div>
+      </div>
   )
 }

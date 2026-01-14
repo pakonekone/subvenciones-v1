@@ -25,6 +25,7 @@ import {
 } from "lucide-react"
 import { GrantChat } from "@/components/GrantChat"
 import { FavoriteButton } from "@/components/FavoriteButton"
+import { DocumentsList } from "@/components/grant/DocumentsList"
 import { cn } from "@/lib/utils"
 
 interface GrantDetailDrawerProps {
@@ -292,6 +293,19 @@ export function GrantDetailDrawer({ grant, open, onClose, isFavorite = false, on
                     </div>
                   )}
                 </div>
+                <Separator />
+              </>
+            )}
+
+            {/* BDNS Documents */}
+            {grant.source === "BDNS" && grant.bdns_documents && grant.bdns_documents.length > 0 && (
+              <>
+                <DocumentsList
+                  grantId={grant.id}
+                  documents={grant.bdns_documents}
+                  processed={grant.bdns_documents_processed || false}
+                  processedAt={grant.bdns_documents_processed_at}
+                />
                 <Separator />
               </>
             )}

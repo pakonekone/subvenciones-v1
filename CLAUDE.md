@@ -77,11 +77,12 @@ See [ARCHITECTURE_DIAGRAM.md](ARCHITECTURE_DIAGRAM.md) for complete visual diagr
 The backend follows a layered architecture with clear separation of concerns:
 
 **`app/models/`** - SQLAlchemy ORM models
-- `grant.py` - Core Grant model with 43+ fields supporting both BOE and BDNS sources
+- `grant.py` - Core Grant model with 47+ fields supporting both BOE and BDNS sources
   - Stores grant metadata, dates, budget, beneficiary types, sectors, regions
   - Includes N8n analysis results (priority, strategic_value)
   - Supports nonprofit classification with confidence scores
   - **Google Sheets tracking**: `google_sheets_exported`, `google_sheets_exported_at`, `google_sheets_row_id`, `google_sheets_url`
+  - **BDNS Document Processing**: `bdns_documents` (JSON), `bdns_documents_processed`, `bdns_documents_processed_at`, `bdns_documents_content`, `bdns_documents_combined_text`
 - `organization_profile.py` - **NEW** Organization profile for eligibility matching
   - Stores organization data: name, CIF, type, sectors, regions, capabilities
   - Used by AI agent to provide personalized eligibility analysis
@@ -89,6 +90,8 @@ The backend follows a layered architecture with clear separation of concerns:
 
 **`app/api/v1/`** - FastAPI route handlers
 - `grants.py` - CRUD operations for grants (list with filters, get by ID, delete, bulk operations)
+  - `GET /{grant_id}/documents` - Get BDNS document metadata and processing status
+  - `POST /{grant_id}/documents/process` - Trigger on-demand PDF text extraction
 - `capture.py` - BDNS capture with **date range selection** (fecha_desde/fecha_hasta)
 - `capture_boe.py` - BOE capture with PDF processing
 - `webhook.py` - **AI Chat Analyst**: Interactive chat for analyzing grants using N8n workflow.
@@ -110,6 +113,10 @@ The backend follows a layered architecture with clear separation of concerns:
 
 **`app/services/`** - Business logic layer
 - `bdns_service.py` - Wraps BDNS API client, filters by nonprofit keywords, stores to DB
+- `bdns_document_service.py` - **NEW** On-demand PDF extraction for BDNS documents
+  - Downloads PDFs from BDNS URLs, extracts text using PDFProcessor
+  - Stores extracted content in `bdns_documents_content` (per-document) and `bdns_documents_combined_text`
+  - Automatically integrates with AI chatbot via `to_n8n_payload()`
 - `boe_service.py` - Wraps BOE API client, processes PDF content
 - `pdf_processor.py` - Extracts text and markdown from PDF documents
 - `n8n_service.py` - Basic webhook sender
@@ -131,7 +138,11 @@ The backend follows a layered architecture with clear separation of concerns:
 - `GrantsPage.tsx` - Main grants table and capture controls
   - Integrates AgentSidebar for persistent AI chat
   - Checks for organization profile on mount
-- `OrganizationPage.tsx` - **NEW** Organization profile form
+- `GrantDetailPage.tsx` - Dedicated grant detail page with URL routing (`/grants/:id`)
+  - Full grant information with modular components
+  - Includes BDNS document list with on-demand processing
+  - AgentSidebar integration for AI chat
+- `OrganizationPage.tsx` - Organization profile form
   - Complete form with sectors, regions, capabilities checkboxes
   - Loads predefined options from backend
   - Auto-saves to database
@@ -140,7 +151,10 @@ The backend follows a layered architecture with clear separation of concerns:
 - `GrantsTable.tsx` - Data table with sorting, filtering, selection
   - **New "Exportado" column** with visual indicators (✅/⏳/➖)
   - **Publication date column** for timeline visibility
-- `GrantDetailDrawer.tsx` - Slide-out panel with full grant details
+- `GrantDetailDrawer.tsx` - Slide-out panel with full grant details (includes DocumentsList)
+- `grant/` - Modular grant components:
+  - `GrantHeader.tsx`, `GrantInfoGrid.tsx`, `GrantTimeline.tsx`, `GrantLinks.tsx`
+  - `DocumentsList.tsx` - **NEW** BDNS document list with download links and processing button
 - `AdvancedFilterPanel.tsx` - Budget range, date range, region/sector filters
 - `CaptureConfigDialog.tsx` - Configure BDNS/BOE capture with **filter preview**
 - `FilterKeywordsManager.tsx` - Modal with 3 tabs to view/edit filter keywords
@@ -153,16 +167,19 @@ The backend follows a layered architecture with clear separation of concerns:
 - `ui/` - shadcn/ui components (Button, Dialog, Select, Checkbox, Textarea, etc.)
 
 **`src/types.ts`** - TypeScript interfaces matching backend models
-- Added `OrganizationProfile`, `ProfileOption`, `ProfileOptions` interfaces
+- `Grant` - Main grant interface with all fields including BDNS documents
+- `BDNSDocument`, `BDNSDocumentContent` - BDNS document metadata and extracted content
+- `OrganizationProfile`, `ProfileOption`, `ProfileOptions` - Organization profile interfaces
 
 ### Data Flow
 
 1. **Capture**: BDNS/BOE APIs → Services (with transparent filtering) → Grant model → PostgreSQL
 2. **Filtering**: Services apply nonprofit keywords (visible via `/api/v1/filters/*`)
 3. **Frontend**: React → FastAPI → PostgreSQL (with pagination, rich filters)
-4. **N8n Analysis**: Selected grants → N8n webhook → AI analysis → Callback updates grant
-5. **Google Sheets Export**: N8n → Sheets → Callback webhook → Update grant tracking fields
-6. **Export**: Grants → Excel with calculated deadlines → Download
+4. **Document Processing**: User triggers → BDNSDocumentService downloads PDFs → PDFProcessor extracts text → Stored in grant
+5. **N8n Analysis**: Selected grants → N8n webhook (includes document content) → AI analysis → Callback updates grant
+6. **Google Sheets Export**: N8n → Sheets → Callback webhook → Update grant tracking fields
+7. **Export**: Grants → Excel with calculated deadlines → Download
 
 ## Key Concepts
 
@@ -274,6 +291,47 @@ PostgreSQL runs on **port 5433** (not default 5432) to avoid conflicts:
 2. **Inbound Callbacks** - Receive results:
    - **Analysis callback**: N8n returns AI analysis (priority, strategic_value)
    - **Sheets callback**: N8n confirms successful Google Sheets export with URL and row ID
+
+### BDNS Document Processing (2026-01-14)
+
+**Purpose**: Extract text content from BDNS PDF attachments (bases reguladoras, anexos) for AI analysis.
+
+**Architecture Decision**: On-demand processing (not during capture) to avoid slow captures and unnecessary processing.
+
+**Database Schema** (`grant.py`):
+```python
+bdns_documents = Column(JSON)                    # Document metadata captured during BDNS fetch
+bdns_documents_processed = Column(Boolean)       # Processing status flag
+bdns_documents_processed_at = Column(DateTime)   # When processed
+bdns_documents_content = Column(JSON)            # Per-document extraction results
+bdns_documents_combined_text = Column(Text)      # All documents combined for AI
+```
+
+**Document URL Format**:
+```
+https://www.infosubvenciones.es/bdnstrans/GE/es/convocatoria/{bdns_code}/document/{doc_id}
+```
+
+**Service** (`bdns_document_service.py`):
+- `process_grant_documents(grant_id)` - Downloads and processes all PDFs for a grant
+- Uses existing `PDFProcessor` for text extraction
+- Stores results per-document and combined
+
+**API Endpoints** (`grants.py`):
+- `GET /api/v1/grants/{id}/documents` - Get document metadata and processing status
+- `POST /api/v1/grants/{id}/documents/process` - Trigger PDF processing
+
+**Frontend** (`DocumentsList.tsx`):
+- Shows document list with download links
+- Processing status badge (Procesado/Pendiente)
+- "Procesar documentos" button triggers extraction
+- Success/error feedback
+
+**AI Integration** (`to_n8n_payload()`):
+- Extracted text automatically appended to `pdf_content_text` field
+- Added under section "CONTENIDO DE DOCUMENTOS ADJUNTOS"
+- Limited to 30,000 chars to avoid payload size issues
+- No prompt changes needed - agent receives content automatically
 
 ### Organization Profile System (2026-01-12)
 
@@ -414,6 +472,7 @@ response = client.get("/api/v1/grants")
 6. **Nonprofit Keywords**: Defined in `shared/filters.py` - case-insensitive matching
 7. **Relevance Score**: Now informational only, does NOT filter grants
 8. **N8n Callbacks**: Two separate webhooks (analysis + sheets) - don't confuse with "Respond to Webhook"
+9. **BDNS Document URLs**: Must use `/GE/es/convocatoria/{bdns_code}/document/{id}` format, NOT `/api/documento/{id}`
 
 ## Environment Variables
 
@@ -426,45 +485,51 @@ Key variables (see `backend/.env.example`):
 - `CORS_ORIGINS` - Allowed frontend origins (comma-separated)
 - `LOG_LEVEL` - Logging verbosity (DEBUG, INFO, WARNING, ERROR)
 
-## Current Feature Status (2026-01-12)
+## Current Feature Status (2026-01-14)
 
 ### ✅ Fully Implemented
 
-1. **Filter Transparency System**
+1. **BDNS Document Processing (2026-01-14)**
+   - On-demand PDF extraction from BDNS attachments
+   - DocumentsList UI component with processing status
+   - Automatic integration with AI chatbot
+   - Displayed in both GrantDetailDrawer and GrantDetailPage
+
+2. **Filter Transparency System**
    - Expose all keywords via API endpoints
    - FilterKeywordsManager UI component
    - Preview filters before capture
 
-2. **Date Range Selection for BDNS**
+3. **Date Range Selection for BDNS**
    - Precise fecha_desde/fecha_hasta selection
    - ISO to BDNS format conversion
    - 1-100 results limit
 
-3. **Google Sheets Export Tracking**
+4. **Google Sheets Export Tracking**
    - Database fields for tracking
    - Bidirectional webhook callbacks
    - Visual indicators in UI (✅/⏳/➖)
 
-4. **Publication Date Column**
+5. **Publication Date Column**
    - Sortable column in GrantsTable
    - Timeline visibility
 
-5. **Advanced Filtering**
+6. **Advanced Filtering**
    - Budget ranges, date ranges, regions, sectors
    - Full-text search
    - Nonprofit classification
 
-6. **N8n Integration**
+7. **N8n Integration**
    - Send grants for AI analysis
    - Receive priority/strategic_value callbacks
    - Queue management (enhanced version)
 
-7. **BOE + BDNS Capture**
+8. **BOE + BDNS Capture**
    - Automatic PDF processing
    - Nonprofit keyword filtering
    - Relevance scoring (informational)
 
-8. **AI Analyst Chat with Organization Context (2026-01-12)**
+9. **AI Analyst Chat with Organization Context (2026-01-12)**
    - Interactive chat with AI agent about specific grants
    - **Organization profile integration** - Agent knows user's organization
    - **Persistent AgentSidebar** - Opens automatically when grant selected
@@ -472,11 +537,11 @@ Key variables (see `backend/.env.example`):
    - Markdown support for rich text responses
    - Warning shown if organization profile not configured
 
-9. **Organization Profile System (2026-01-12)**
-   - Database model with sectors, regions, capabilities
-   - CRUD API endpoints with predefined options
-   - Form UI with checkboxes for multi-select fields
-   - Integrated with AI chat for personalized analysis
+10. **Organization Profile System (2026-01-12)**
+    - Database model with sectors, regions, capabilities
+    - CRUD API endpoints with predefined options
+    - Form UI with checkboxes for multi-select fields
+    - Integrated with AI chat for personalized analysis
 
 ### 🔄 In Progress (see TODO.md)
 
